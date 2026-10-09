@@ -1,0 +1,14 @@
+[Unit]
+Description=Dictation hotkey listener (Meta+H via KDE kglobalaccel)
+After=graphical-session.target
+# Stop at logout and start fresh at login, so the shortcut is registered with the
+# current session's KWin even when user linger keeps the user manager running.
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/share/dictation/venv/bin/python3 %h/.local/share/dictation/hotkey_listener.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
