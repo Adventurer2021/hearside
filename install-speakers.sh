@@ -47,11 +47,15 @@ if [ -d "$VENV" ] && [ ! -d "$VENV/lib/python$want_py" ]; then
     echo "Existing environment was built for a different Python - rebuilding it for $want_py"
     rm -rf "$VENV"
 fi
+echo "Installing pyannote and its own copy of PyTorch (about 1.5 GB). This takes several minutes"
+echo "and shows little output - please wait..."
 [ -x "$VENV/bin/python3" ] || python3 -m venv "$VENV"
 "$VENV/bin/pip" install -q --upgrade pip
 "$VENV/bin/pip" install -q "torch==$TORCH_VERSION" --index-url https://download.pytorch.org/whl/cpu
 constraints="$(mktemp)"; echo "torch==$TORCH_VERSION" > "$constraints"
+echo "  PyTorch done; installing pyannote.audio..."
 "$VENV/bin/pip" install -q pyannote.audio --extra-index-url https://download.pytorch.org/whl/cpu -c "$constraints"
+echo "  pyannote.audio installed."
 rm -f "$constraints"
 
 echo "== Telemetry off (saved as pyannote's default; speakers.sh also forces it off and blocks the network) =="
