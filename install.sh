@@ -87,7 +87,7 @@ if [ ${#user_args[@]} -eq 0 ] && [ ! -f "$HOME/.config/voice-dictation.env" ] &&
 fi
 
 bold "Step 1 of 3: system packages (asks for your password)"
-sudo bash "$HERE/install-system.sh"
+sudo bash "$HERE/install-system.sh" --from-install
 
 if ! id -nG | grep -qw input; then
     bold "Almost there: log out and back in"

@@ -115,8 +115,11 @@ else
     sudo -u "$TARGET_USER" /usr/bin/python3 "$HERE/files/indicator.py" --check 2>/dev/null \
         || echo "NOTE: floating-bar check failed - dictation will still work, with the tray icon only."
 fi
-if [ "$relogin" = yes ]; then
-    echo "NEXT: log out and back in (group change), then run:  bash $HERE/install-user.sh"
-else
-    echo "NEXT: run as your normal user:  bash $HERE/install-user.sh"
+# When run by install.sh, it gives the next step itself.
+if [ "${1:-}" != "--from-install" ]; then
+    if [ "$relogin" = yes ]; then
+        echo "NEXT: log out and back in (group change), then run:  bash $HERE/install-user.sh"
+    else
+        echo "NEXT: run as your normal user:  bash $HERE/install-user.sh"
+    fi
 fi
