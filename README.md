@@ -39,7 +39,7 @@ Speakers are numbered in the order they first speak. Rename them with your edito
 
 ## Requirements (short version)
 
-- **Linux with KDE Plasma** 5.27 or 6.x, on Wayland or X11. Other desktops partly work; see [INSTALL.md](INSTALL.md#other-desktops).
+- **Linux with KDE Plasma** 5.27 or newer, on Wayland or X11. **KDE Plasma is required**; the installer checks first and stops on other desktops. `./install.sh --check` tests a computer without installing anything.
 - **Debian / Ubuntu** (apt) or **Fedora / RHEL / AlmaLinux / Rocky** (dnf), with **PipeWire** sound (the default on all current releases).
 - A microphone, `sudo` rights, and internet **during installation only**.
 - About **6 GB** of disk (plus **1.5 GB** for speaker labels). Any recent x86-64 CPU; slow ones (Intel N100 class) use an 8-bit mode the installer offers.

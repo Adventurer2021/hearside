@@ -2,7 +2,7 @@
 
 This guide takes about 15–30 minutes, most of it waiting for downloads. You'll need:
 
-- [ ] A Linux computer running **KDE Plasma** 5.27 or 6.x (Wayland or X11)
+- [ ] A Linux computer running **KDE Plasma** 5.27 or newer (Wayland or X11), and **logged into it** while installing; required
 - [ ] **Debian / Ubuntu / Kubuntu**, or **Fedora / RHEL / AlmaLinux / Rocky Linux**
 - [ ] **PipeWire** sound (standard on all current releases of those)
 - [ ] A **microphone**
@@ -24,7 +24,13 @@ pactl info | grep "Server Name"   # ...PipeWire...
 df -h ~                       # at least 6G under "Avail"
 ```
 
-If the first line isn't `KDE`, read [Other desktops](#other-desktops) before continuing.
+Or let the installer check for you, without installing anything:
+
+```bash
+./install.sh --check      # "OK: KDE Plasma 6.x.x ... This computer can run Hearside."
+```
+
+**Hearside requires KDE Plasma.** The installer checks this first and stops if Plasma isn't installed, is older than 5.27, or isn't the desktop you're logged into right now.
 
 ## 2. Unpack it
 
@@ -42,7 +48,9 @@ cd hearside-1.0.0
 ./install.sh
 ```
 
-Run it as **yourself**, not with `sudo`; it asks for your password when it needs it. What happens:
+Run it as **yourself**, not with `sudo`, while **logged into your Plasma desktop**. Running it in Konsole is simplest; over SSH works too, as long as you're logged into Plasma on that computer at the same time. It asks for your password when it needs it. What happens:
+
+0. **Checks first** that KDE Plasma 5.27+ is installed and is the desktop you're logged into. If not, it stops and says why, before changing anything.
 
 1. **System packages** (asks for your password). It installs Python tools, PipeWire's echo canceller, `bubblewrap`, `ydotool` (to type dictated text; downloaded from its GitHub release and checksum-verified) and, for the floating "Listening" bar, `gtk4-layer-shell` (built from checksum-verified source if your distribution doesn't package it). It also adds you to the `input` group. Your package manager will show the list and ask you to confirm.
 2. **If it says to log out and back in**: do that (on some systems a reboot is needed), then run `./install.sh` again. It skips what's already done.
@@ -117,15 +125,7 @@ The hotkeys can be changed in **System Settings → Shortcuts → Voice Dictatio
 
 ## Other desktops
 
-The speech engine, captions, transcripts and speaker labels work on any desktop with PipeWire. Three things are KDE-specific:
-
-- **Hotkeys.** On another desktop, add two custom shortcuts in its keyboard settings:
-  - dictation: `~/.local/share/dictation/dictate.sh`
-  - captions: `~/.local/share/dictation/dictate.sh --caption`
-- **Caption window "stay on top, never take focus".** Without KDE it's an ordinary window, so click back into your app after it opens.
-- **The floating "Listening" bar** needs either KDE or another Wayland desktop that supports layer-shell (most do, but GNOME doesn't), or an X11 session. Without it, the tray icon still shows the status; GNOME needs its AppIndicator extension for that.
-
-The installer warns you if it doesn't detect KDE.
+Hearside supports **KDE Plasma only**. Its hotkeys, its caption window that stays on top without taking focus, and its floating "Listening" bar all use KDE's own services, so the installer refuses to run on GNOME, Cinnamon, XFCE and others. (The speech engine underneath is desktop-neutral, so support could be added later.)
 
 ## Troubleshooting
 
