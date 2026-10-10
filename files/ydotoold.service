@@ -1,9 +1,13 @@
 [Unit]
 Description=ydotool daemon
+# At boot this can start a moment before /dev/uinput has its "input" group permission and fail with
+# "failed to open uinput device: Permission denied". Never give up; retry every 2 seconds.
+StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/local/bin/ydotoold --socket-path=%t/.ydotool_socket --socket-own=%U:%G
 Restart=on-failure
+RestartSec=2
 
 [Install]
 WantedBy=default.target
