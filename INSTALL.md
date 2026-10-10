@@ -36,11 +36,11 @@ Or let the installer check for you, without installing anything:
 
 ```bash
 cd ~/Downloads                      # or wherever you saved it
-tar xzf hearside-1.0.0.tar.gz
-cd hearside-1.0.0
+tar xzf hearside-1.0.1.tar.gz
+cd hearside-1.0.1
 ```
 
-(If you received the `.zip` instead, unpack it with `unzip hearside-1.0.0.zip`. Zip files often lose the "executable" flag, so start the installer with `bash install.sh` instead of `./install.sh`. The same goes for `bash uninstall.sh`.)
+(If you received the `.zip` instead, unpack it with `unzip hearside-1.0.1.zip`. Zip files often lose the "executable" flag, so start the installer with `bash install.sh` instead of `./install.sh`. The same goes for `bash uninstall.sh`.)
 
 ## 3. Run the installer
 

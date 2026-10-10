@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 (2026-10-10)
 
 - Fixed: dictation could recognise speech but type nothing for a whole session after a reboot. The typing helper (`ydotoold`) could start before `/dev/uinput` had its group permission, fail, and give up after five quick retries. Its unit now retries every 2 seconds with no limit. Existing installs: re-run `install.sh`, or add `StartLimitIntervalSec=0` under `[Unit]` and `RestartSec=2` under `[Service]` in `~/.config/systemd/user/ydotoold.service`, then `systemctl --user daemon-reload`.
 

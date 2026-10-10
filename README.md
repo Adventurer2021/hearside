@@ -11,8 +11,8 @@
 ## Quick start
 
 ```bash
-tar xzf hearside-1.0.0.tar.gz
-cd hearside-1.0.0
+tar xzf hearside-1.0.1.tar.gz
+cd hearside-1.0.1
 ./install.sh
 ```
 
