@@ -525,6 +525,10 @@ def _run_dictation_inner(stop_event: threading.Event, listening_started: threadi
 
     threading.Thread(target=capture_audio, daemon=True).start()
 
+    # Set when typing stopped the session: the separator space is then left out, because it
+    # would land in the middle of whatever the user has started typing.
+    stopped_by_keypress = [False]
+
     def watch_physical_keyboard():
         devices = [evdev.InputDevice(p) for p in real_keyboard_devices()]
         if not devices:
@@ -553,6 +557,7 @@ def _run_dictation_inner(stop_event: threading.Event, listening_started: threadi
                     # invocation; treating them as typing too would race it into a new session.
                     if event.value == 1 and not meta_held:
                         log("keypress -> stopping")
+                        stopped_by_keypress[0] = True
                         stop_event.set()
                         return
 
@@ -662,8 +667,12 @@ def _run_dictation_inner(stop_event: threading.Event, listening_started: threadi
         log(f"recognition pass {segment} ended at a quiet moment; starting the next")
 
     remove_pid_file(os.getpid())
-    if not CAPTION_MODE:
+    # Separator space so the next dictation does not run into the last word: only after a
+    # Win+H (or tray) stop, and only if this session typed anything.
+    if not CAPTION_MODE and chars_out > 0 and not stopped_by_keypress[0]:
         type_text(" ")
+    elif not CAPTION_MODE:
+        log("no separator space: " + ("stopped by a keypress" if stopped_by_keypress[0] else "nothing was typed"))
     log(
         f"stopped: {time.time() - listen_start:.1f}s listened, {chars_out} chars output, {segment + 1} pass(es), "
         f"peak mic level {peak_rms[0]:.0f}, model thread finished={not gen_thread.is_alive()}"

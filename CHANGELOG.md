@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2 (2026-10-14)
+
+- Fixed: a stray space could appear in whatever you were typing. Dictation stops on any keypress, and at the end of every session it typed one space (so the next dictation would not run into the last word). When the session was stopped by typing, that space arrived about a second after your first key, in the middle of your text (e.g. `S D` instead of `SD`). The space is now typed only when dictation is stopped with Win+H (or the tray), and only if the session typed something. The last spoken word is still always typed. Live captions are unaffected. Existing installs: re-run `install.sh`, or replace `~/.local/share/dictation/dictate.py` with `files/dictate.py`.
+- Note: if you start a new dictation straight after stopping one by typing, its first word follows your text without a space.
+
 ## 1.0.1 (2026-10-10)
 
 - Fixed: dictation could recognise speech but type nothing for a whole session after a reboot. The typing helper (`ydotoold`) could start before `/dev/uinput` had its group permission, fail, and give up after five quick retries. Its unit now retries every 2 seconds with no limit. Existing installs: re-run `install.sh`, or add `StartLimitIntervalSec=0` under `[Unit]` and `RestartSec=2` under `[Service]` in `~/.config/systemd/user/ydotoold.service`, then `systemctl --user daemon-reload`.
