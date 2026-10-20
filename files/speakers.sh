@@ -9,11 +9,16 @@
 # Usage: speakers.sh call.wav live-transcript.txt
 set -uo pipefail
 
-DIR="$HOME/.local/share/dictation"
-LOG="$DIR/speakers.log"
-CONF="$HOME/.config/voice-dictation.env"
-[ -f "$CONF" ] && { set -a; . "$CONF"; set +a; }
-export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYANNOTE_METRICS_ENABLED=0
+# Programs and models are shared, read-only, in the Hearside folder (normally /opt/hearside);
+# the log is per user.
+DIR="$(dirname "$(readlink -f "$0")")"
+STATE="$HOME/.local/share/hearside"
+mkdir -p "$STATE"
+LOG="$STATE/speakers.log"
+for CONF in "$DIR/hearside.env" "$HOME/.config/voice-dictation.env"; do
+    [ -f "$CONF" ] && { set -a; . "$CONF"; set +a; }
+done
+export HF_HOME="$DIR/hf" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYANNOTE_METRICS_ENABLED=0
 
 WAV="$1"
 LIVE="$2"

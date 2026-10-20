@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Toggle live voice dictation, like Windows 11 Win+H. Launched by
-hotkey_listener.py: the first run listens and types words into the focused
-window as they are recognised (via ydotool); a second run while one is active
-stops it, as does pressing any ordinary key. Uses NVIDIA's Nemotron streaming
-ASR model fully offline. Loads the model per session (a few seconds) instead
-of staying resident, so nothing runs between sessions. Shows a tray icon plus
-a floating layer-shell bar (indicator.py) while active.
+"""Live voice dictation, like Windows 11 Win+H. Launched by hotkey_listener.py:
+the first Win+H opens the dictation bar (bar.py) and starts listening; words are
+typed into the focused window as they are recognised (via ydotool). The bar
+then stays on screen: its microphone button, Win+H (a second run of this script,
+which signals the first) or the tray icon start and stop listening, and any
+ordinary key stops it. Closing the bar ends dictation. The model (NVIDIA's
+Nemotron streaming ASR, fully offline) is loaded once when the bar opens and
+kept while it is open, so listening starts at once; nothing runs once it is closed.
 
 With --caption it runs as live captions instead (Meta+Shift+H): words go to a
 click-through caption strip (captions.py) and a transcript file, never to the
@@ -34,10 +35,11 @@ import evdev
 import numpy as np
 import torch
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-# Per-machine settings come from ~/.config/voice-dictation.env via dictate.sh.
+# Machine settings come from <APP_DIR>/hearside.env, per-user overrides from
+# ~/.config/voice-dictation.env, both via dictate.sh.
 # Slow CPUs (e.g. Intel N100) need DICTATION_INT8=1 to keep up with speech.
 CPU_THREADS = int(os.environ.get("DICTATION_THREADS", "4"))
 USE_INT8 = os.environ.get("DICTATION_INT8") == "1"
@@ -46,24 +48,28 @@ torch.set_num_threads(CPU_THREADS)
 CAPTION_MODE = "--caption" in sys.argv
 MODE_NAME = "Captions" if CAPTION_MODE else "Dictation"
 
-STATE_DIR = os.path.expanduser("~/.local/share/dictation")
-INT8_CACHE = os.path.join(STATE_DIR, "model-int8.pt")
+# Program files, Python environments and models are shared by all users, read-only, in APP_DIR
+# (normally /opt/hearside). Logs and the PID file are per user.
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+HF_HOME = os.environ.get("HF_HOME") or os.path.join(APP_DIR, "hf")
+STATE_DIR = os.path.expanduser("~/.local/share/hearside")
+# Built once by the installer; if it is missing, the 8-bit model is made in memory each time.
+INT8_CACHE = os.path.join(APP_DIR, "model-int8.pt")
 RUNTIME_DIR = os.environ.get("XDG_RUNTIME_DIR") or STATE_DIR
 PID_FILE = os.path.join(RUNTIME_DIR, "voice-captions.pid" if CAPTION_MODE else "voice-dictation.pid")
 TIMELINE_LOG = os.path.join(STATE_DIR, "timeline.log")
 LOG_MAX_BYTES = 1_000_000
-INDICATOR_SCRIPT = os.path.join(STATE_DIR, "indicator.py")
-INDICATOR_X11_SCRIPT = os.path.join(STATE_DIR, "indicator_x11.py")
-CAPTIONS_SCRIPT = os.path.join(STATE_DIR, "captions.py")
+BAR_SCRIPT = os.path.join(APP_DIR, "bar.py")
+CAPTIONS_SCRIPT = os.path.join(APP_DIR, "captions.py")
 TRANSCRIPT_DIR = os.path.expanduser(os.environ.get("CAPTION_TRANSCRIPT_DIR", "~/Transcripts"))
 # Long calls: restart recognition at a quiet moment every few minutes so each pass stays short.
 SEGMENT_SECONDS = float(os.environ.get("CAPTION_SEGMENT_SECONDS", "120")) if CAPTION_MODE else 0.0
 PAUSE_NEWLINE_SECONDS = 2.5
 LONG_LINE_CHARS = 400
 # Speaker-labelled transcripts are made after the call from the saved audio (speakers.sh).
-SPEAKERS_SCRIPT = os.path.join(STATE_DIR, "speakers.sh")
-SPEAKER_MODEL_CACHE = os.path.expanduser("~/.cache/huggingface/hub/models--pyannote--speaker-diarization-community-1")
-SPEAKERS_READY = (os.path.isfile(SPEAKERS_SCRIPT) and os.path.isdir(os.path.join(STATE_DIR, "speakers-venv"))
+SPEAKERS_SCRIPT = os.path.join(APP_DIR, "speakers.sh")
+SPEAKER_MODEL_CACHE = os.path.join(HF_HOME, "hub", "models--pyannote--speaker-diarization-community-1")
+SPEAKERS_READY = (os.path.isfile(SPEAKERS_SCRIPT) and os.path.isdir(os.path.join(APP_DIR, "speakers-venv"))
                   and bool(glob.glob(os.path.join(SPEAKER_MODEL_CACHE, "snapshots", "*", "config.yaml"))))
 SPEAKER_LABELS = CAPTION_MODE and SPEAKERS_READY and os.environ.get("CAPTION_SPEAKER_LABELS", "1") == "1"
 SAVE_AUDIO = SPEAKER_LABELS or os.environ.get("CAPTION_SAVE_AUDIO") == "1"
@@ -72,7 +78,7 @@ SAVE_AUDIO = SPEAKER_LABELS or os.environ.get("CAPTION_SAVE_AUDIO") == "1"
 # that removes whatever the speakers play - about 35 dB in testing - so call audio isn't doubled.
 COMPUTER_AUDIO = CAPTION_MODE and os.environ.get("CAPTION_COMPUTER_AUDIO", "1") == "1"
 ECHO_CANCEL = COMPUTER_AUDIO and os.environ.get("CAPTION_ECHO_CANCEL", "1") == "1"
-ECHO_CANCEL_CONF = os.path.join(STATE_DIR, "captions-echo-cancel.conf")
+ECHO_CANCEL_CONF = os.path.join(APP_DIR, "captions-echo-cancel.conf")
 AEC_SOURCE = "captions_aec_source"
 COMPUTER_SOURCE = "@DEFAULT_MONITOR@"
 MAX_COMPUTER_BACKLOG = 16000  # bytes = 0.5 s of 16 kHz 16-bit audio; older computer audio is dropped to stay in sync
@@ -93,6 +99,7 @@ def log(event: str) -> None:
         pass
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     tag = "captions" if CAPTION_MODE else "dictate"
+    os.makedirs(STATE_DIR, exist_ok=True)
     with open(TIMELINE_LOG, "a") as f:
         f.write(f"{ts} [{tag} pid={os.getpid()}] {event}\n")
 
@@ -159,22 +166,20 @@ def notify_status(message: str, replace_id: "str | None", timeout_ms: int) -> "s
 
 
 def indicator_command() -> "list[str] | None":
-    if CAPTION_MODE:
-        if os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"):
-            return [sys.executable, CAPTIONS_SCRIPT]  # ordinary Qt window, venv Python; KWin rule pins it
+    # Both are ordinary Qt windows (Wayland or X11) run with the venv's Python; a KWin rule
+    # (setup-window-rules.sh) keeps them on top and stops them ever taking keyboard focus.
+    if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
         return None
-    if os.environ.get("WAYLAND_DISPLAY"):
-        return ["/usr/bin/python3", INDICATOR_SCRIPT]  # GTK4 layer-shell, system Python
-    if os.environ.get("DISPLAY"):
-        return [sys.executable, INDICATOR_X11_SCRIPT]  # override-redirect Qt window, venv Python
-    return None
+    return [sys.executable, CAPTIONS_SCRIPT if CAPTION_MODE else BAR_SCRIPT]
 
 
 def start_indicator(cmd: "list[str]") -> "subprocess.Popen | None":
     # Separate process that exits when its stdin closes, including if this
-    # process dies, so it can't be left on screen.
+    # process dies, so it can't be left on screen. The dictation bar reports
+    # clicks on its stdout.
     try:
-        return subprocess.Popen(cmd, stdin=subprocess.PIPE, text=True)
+        return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=None if CAPTION_MODE else subprocess.PIPE,
+                                text=True)
     except OSError as exc:
         log(f"indicator failed to start (dictation unaffected): {exc!r}")
         return None
@@ -395,7 +400,8 @@ def load_model():
 
     if not USE_INT8:
         return AutoModelForRNNT.from_pretrained(MODEL_ID, device_map="cpu", dtype=torch.float32)
-    # Quantizing takes ~11s on an N100, so do it once and reuse the saved result.
+    # Quantizing takes ~11s on an N100, so the installer does it once (--prepare-model, as root)
+    # and every user loads the shared result.
     if os.path.exists(INT8_CACHE):
         try:
             return torch.load(INT8_CACHE, weights_only=False, mmap=True)
@@ -405,19 +411,36 @@ def load_model():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model = torch.ao.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
-    torch.save(model, INT8_CACHE + ".tmp")
-    os.replace(INT8_CACHE + ".tmp", INT8_CACHE)
-    log("built int8 model cache")
+    if os.access(APP_DIR, os.W_OK):
+        torch.save(model, INT8_CACHE + ".tmp")
+        os.replace(INT8_CACHE + ".tmp", INT8_CACHE)
+        log("built int8 model cache")
+    else:
+        log(f"int8 model made in memory ({INT8_CACHE} missing; re-run the installer to build it once)")
     return model
 
 
-def run_dictation(work_done: threading.Event, stop_event: threading.Event, listening_started: threading.Event,
-                  session: dict) -> None:
+def load_processor_and_model():
+    t0 = time.time()
+    from transformers import AutoProcessor
+
+    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    model = load_model()
+    processor.set_num_lookahead_tokens(NUM_LOOKAHEAD_TOKENS)
+    log(f"model loaded in {time.time() - t0:.2f}s (int8={USE_INT8}, threads={CPU_THREADS})")
+    return processor, model
+
+
+def run_captions(work_done: threading.Event, stop_event: threading.Event, listening_started: threading.Event,
+                 session: dict) -> None:
     try:
-        _run_dictation_inner(stop_event, listening_started, session)
+        # Started before the model loads so it's ready by the time capture begins.
+        session["echo_cancel"] = start_echo_cancel()
+        processor, model = load_processor_and_model()
+        listen(processor, model, stop_event, listening_started, session)
     except Exception:
         log(f"CRASHED:\n{traceback.format_exc()}")
-        notify_error(f"{MODE_NAME} crashed - see ~/.local/share/dictation/timeline.log")
+        notify_error(f"{MODE_NAME} crashed - see ~/.local/share/hearside/timeline.log")
     finally:
         stop_echo_cancel(session.get("echo_cancel"))
         output = session.get("output")
@@ -427,17 +450,33 @@ def run_dictation(work_done: threading.Event, stop_event: threading.Event, liste
         work_done.set()
 
 
-def _run_dictation_inner(stop_event: threading.Event, listening_started: threading.Event, session: dict) -> None:
-    t0 = time.time()
-    # Started before the model loads so it's ready by the time capture begins.
-    session["echo_cancel"] = start_echo_cancel()
-    from transformers import AutoProcessor
+def run_dictation_bar(work_done: threading.Event, ctl: dict) -> None:
+    """Dictation worker: loads the model once, then listens each time ctl["want"] is set,
+    until ctl["quit"] is set. ctl["listen"] holds the running listen's (stop, started) events."""
+    try:
+        processor, model = load_processor_and_model()
+        ctl["loaded"].set()
+        while not ctl["quit"].is_set():
+            if not ctl["want"].wait(0.2):
+                continue
+            stop_event, listening_started = threading.Event(), threading.Event()
+            ctl["listen"] = (stop_event, listening_started)
+            try:
+                listen(processor, model, stop_event, listening_started, {})
+            finally:
+                ctl["listen"] = None
+                ctl["want"].clear()
+    except Exception:
+        log(f"CRASHED:\n{traceback.format_exc()}")
+        notify_error(f"{MODE_NAME} crashed - see ~/.local/share/hearside/timeline.log")
+    finally:
+        # The Qt main loop only quits once this is set, so it must happen even on a crash.
+        work_done.set()
 
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
-    model = load_model()
-    processor.set_num_lookahead_tokens(NUM_LOOKAHEAD_TOKENS)
-    log(f"model loaded in {time.time() - t0:.2f}s (int8={USE_INT8}, threads={CPU_THREADS})")
 
+def listen(processor, model, stop_event: threading.Event, listening_started: threading.Event, session: dict) -> None:
+    """One listening run: from the microphone into the focused window (dictation) or the caption
+    window and transcript (captions), until stop_event is set or, for dictation, a key is pressed."""
     audio_q: "queue.Queue[bytes | None]" = queue.Queue()
     peak_rms = [0.0]
     recorder = None
@@ -666,9 +705,10 @@ def _run_dictation_inner(stop_event: threading.Event, listening_started: threadi
         segment += 1
         log(f"recognition pass {segment} ended at a quiet moment; starting the next")
 
-    remove_pid_file(os.getpid())
+    if CAPTION_MODE:
+        remove_pid_file(os.getpid())  # the dictation bar keeps its PID file until it is closed
     # Separator space so the next dictation does not run into the last word: only after a
-    # Win+H (or tray) stop, and only if this session typed anything.
+    # Win+H, microphone-button or tray stop, and only if this listen typed anything.
     if not CAPTION_MODE and chars_out > 0 and not stopped_by_keypress[0]:
         type_text(" ")
     elif not CAPTION_MODE:
@@ -716,12 +756,24 @@ def stop_dictation(pid: int) -> None:
         pass
 
 
+def toggle_running_dictation(pid: int) -> None:
+    # A second Win+H while the bar is open starts or stops listening, like its microphone button.
+    log(f"toggle requested for pid={pid}")
+    try:
+        os.kill(pid, signal.SIGUSR1)
+    except ProcessLookupError:
+        pass
+
+
 def main() -> None:
     os.makedirs(STATE_DIR, exist_ok=True)
     pid = read_pid_file()
     if pid is not None:
         if is_dictation_process(pid):
-            stop_dictation(pid)
+            if CAPTION_MODE:
+                stop_dictation(pid)
+            else:
+                toggle_running_dictation(pid)
             return
         log(f"removing stale PID file (pid={pid} is not a dictation process)")
         remove_pid_file(pid)
@@ -729,7 +781,122 @@ def main() -> None:
     with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
     log("session starting")
+    if CAPTION_MODE:
+        main_captions()
+    else:
+        main_dictation()
 
+
+def main_dictation() -> None:
+    app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+    work_done = threading.Event()
+    ctl = {"loaded": threading.Event(), "want": threading.Event(), "quit": threading.Event(), "listen": None}
+    ctl["want"].set()  # Win+H opens the bar already listening, as on Windows
+    # "toggle" / "close" requests from signal handlers, the bar and the tray, handled on the Qt thread.
+    requests: "queue.SimpleQueue[str]" = queue.SimpleQueue()
+
+    bar_cmd = indicator_command()
+    bar = start_indicator(bar_cmd) if bar_cmd else None
+
+    def read_bar() -> None:
+        for line in bar.stdout:
+            requests.put(line.strip())
+        # The bar is gone (closed, or crashed): never keep listening with nothing on screen.
+        requests.put("close")
+
+    if bar is not None:
+        threading.Thread(target=read_bar, daemon=True).start()
+
+    tray = QSystemTrayIcon()
+    tray.setIcon(QIcon.fromTheme("dictation-idle"))
+    tray.setToolTip("Dictation: loading...")
+    menu = QMenu()
+    toggle_action = QAction("Start/stop listening (Win+H)")
+    toggle_action.triggered.connect(lambda: requests.put("toggle"))
+    close_action = QAction("Close dictation")
+    close_action.triggered.connect(lambda: requests.put("close"))
+    menu.addAction(toggle_action)
+    menu.addAction(close_action)
+    tray.setContextMenu(menu)
+    tray.activated.connect(
+        lambda reason: requests.put("toggle") if reason == QSystemTrayIcon.ActivationReason.Trigger else None)
+    tray.show()
+
+    signal.signal(signal.SIGUSR1, lambda signum, frame: requests.put("toggle"))
+    signal.signal(signal.SIGTERM, lambda signum, frame: requests.put("close"))
+    threading.Thread(target=run_dictation_bar, args=(work_done, ctl), daemon=True).start()
+
+    def toggle() -> None:
+        current = ctl["listen"]
+        if current is not None and not current[0].is_set():
+            log("stop listening (user)")
+            current[0].set()
+        elif not ctl["loaded"].is_set() and ctl["want"].is_set():
+            log("start cancelled while loading (user)")
+            ctl["want"].clear()
+        else:
+            log("start listening (user)")
+            ctl["want"].set()
+
+    def close() -> None:
+        if ctl["quit"].is_set():
+            return
+        log("dictation closed (user)")
+        ctl["quit"].set()
+        ctl["want"].clear()
+        current = ctl["listen"]
+        if current is not None:
+            current[0].set()
+
+    def state() -> str:
+        if not ctl["loaded"].is_set():
+            return "loading"
+        current = ctl["listen"]
+        if current is not None:
+            return "listening" if current[1].is_set() and not current[0].is_set() else "starting"
+        return "starting" if ctl["want"].is_set() else "idle"
+
+    hints = {"loading": "loading...", "starting": "starting...",
+             "listening": "LISTENING - Win+H, the tray icon or any key to stop",
+             "idle": "paused - Win+H or click the tray icon to listen"}
+    shown = [None]
+    notice_id = [None]
+    timer = QTimer()
+
+    # Cross-thread Qt signals didn't reliably repaint the tray icon here; polling does.
+    def poll() -> None:
+        while True:
+            try:
+                request = requests.get_nowait()
+            except queue.Empty:
+                break
+            if request == "toggle":
+                toggle()
+            elif request == "close":
+                close()
+        now = state()
+        if now != shown[0]:
+            shown[0] = now
+            tray.setIcon(QIcon.fromTheme("dictation-listening" if now == "listening" else "dictation-idle"))
+            tray.setToolTip(f"Dictation: {hints[now]}")
+            send_indicator(bar, now)
+            if bar is None and now in ("listening", "idle"):
+                notice_id[0] = notify_status(f"Dictation {hints[now]}", notice_id[0], 0 if now == "listening" else 3000)
+        if work_done.is_set():
+            timer.stop()
+            stop_indicator(bar)
+            if bar is None:
+                notify_status("Dictation closed", notice_id[0], 1500)
+            remove_pid_file(os.getpid())
+            app.quit()
+
+    timer.timeout.connect(poll)
+    timer.start(150)
+    app.exec()
+
+
+def main_captions() -> None:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     work_done = threading.Event()
@@ -738,21 +905,20 @@ def main() -> None:
     tray = QSystemTrayIcon()
     tray.setIcon(QIcon.fromTheme("dictation-idle"))
     tray.setToolTip(f"{MODE_NAME}: loading...")
-    if CAPTION_MODE:
-        # The caption strip is click-through, so the tray icon is the mouse way to stop.
-        tray.activated.connect(lambda _reason: stop_event.set())
+    # The tray icon is another mouse way to stop captions.
+    tray.activated.connect(lambda _reason: stop_event.set())
     tray.show()
     bar_cmd = indicator_command()
     use_bar = bar_cmd is not None
     indicator = start_indicator(bar_cmd) if use_bar else None
-    if CAPTION_MODE and not use_bar:
+    if not use_bar:
         notify_error("No graphical session for the caption window - the transcript is still being saved")
     notice_id = None if use_bar else notify_status(f"Loading {MODE_NAME.lower()}…", None, 60000)
-    stop_hint = "Meta+Shift+H or click the tray icon to stop" if CAPTION_MODE else "press Win+H or any key to stop"
+    stop_hint = "Meta+Shift+H or click the tray icon to stop"
 
     session = {"indicator": indicator}
     signal.signal(signal.SIGTERM, lambda signum, frame: stop_event.set())
-    threading.Thread(target=run_dictation, args=(work_done, stop_event, listening_started, session), daemon=True).start()
+    threading.Thread(target=run_captions, args=(work_done, stop_event, listening_started, session), daemon=True).start()
 
     shown_listening = False
     window_gone = False
@@ -761,7 +927,7 @@ def main() -> None:
     # Cross-thread Qt signals didn't reliably repaint the tray icon here; polling a flag does.
     def poll():
         nonlocal shown_listening, notice_id, window_gone
-        if CAPTION_MODE and indicator is not None and not window_gone and indicator.poll() is not None:
+        if indicator is not None and not window_gone and indicator.poll() is not None:
             window_gone = True
             if indicator.returncode == 0:
                 log("caption window closed by the user -> stopping")
@@ -773,25 +939,22 @@ def main() -> None:
             shown_listening = True
             tray.setIcon(QIcon.fromTheme("dictation-listening"))
             tray.setToolTip(f"{MODE_NAME}: LISTENING - {stop_hint}")
-            send_indicator(indicator, json.dumps({"state": "listening"}) if CAPTION_MODE else "listening")
+            send_indicator(indicator, json.dumps({"state": "listening"}))
             if not use_bar:
                 notice_id = notify_status(f"Listening — {stop_hint}", notice_id, 0)
         if work_done.is_set():
             timer.stop()
             stop_indicator(indicator)
-            if CAPTION_MODE:
-                saved = session.get("transcript")
-                if not saved:
-                    notify_status("Captions stopped (nothing was heard, no transcript saved)", notice_id, 8000)
-                else:
-                    transcript, audio = saved
-                    message = f"Captions stopped. Transcript saved:\n{transcript}"
-                    if SPEAKER_LABELS and audio:
-                        start_speaker_labels(audio, transcript)
-                        message += "\nA speaker-labelled version will follow in a few minutes."
-                    notify_status(message, notice_id, 10000)
-            elif not use_bar:
-                notify_status("Dictation stopped", notice_id, 1500)
+            saved = session.get("transcript")
+            if not saved:
+                notify_status("Captions stopped (nothing was heard, no transcript saved)", notice_id, 8000)
+            else:
+                transcript, audio = saved
+                message = f"Captions stopped. Transcript saved:\n{transcript}"
+                if SPEAKER_LABELS and audio:
+                    start_speaker_labels(audio, transcript)
+                    message += "\nA speaker-labelled version will follow in a few minutes."
+                notify_status(message, notice_id, 10000)
             remove_pid_file(os.getpid())
             app.quit()
 

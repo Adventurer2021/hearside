@@ -14,8 +14,10 @@ import sys
 from PySide6.QtCore import SLOT, QCoreApplication, QObject, QTimer, Slot
 from PySide6.QtDBus import QDBusConnection, QDBusServiceWatcher
 
-STATE_DIR = os.path.expanduser("~/.local/share/dictation")
-DICTATE_SCRIPT = os.path.join(STATE_DIR, "dictate.sh")
+APP_DIR = os.path.dirname(os.path.abspath(__file__))  # shared program folder (normally /opt/hearside)
+STATE_DIR = os.path.expanduser("~/.local/share/hearside")  # this user's logs
+DICTATE_SCRIPT = os.path.join(APP_DIR, "dictate.sh")
+WINDOW_RULES_SCRIPT = os.path.join(APP_DIR, "setup-window-rules.sh")
 TIMELINE_LOG = os.path.join(STATE_DIR, "timeline.log")
 
 COMPONENT = "voice-dictation"
@@ -63,6 +65,12 @@ class ShortcutReceiver(QObject):
 
 
 def main() -> None:
+    os.makedirs(STATE_DIR, exist_ok=True)
+    # Each user's KWin rules for the dictation bar and caption window (keep above, never take
+    # focus). The script does nothing when they are already current, so this is cheap.
+    rules = subprocess.run(["bash", WINDOW_RULES_SCRIPT], capture_output=True, text=True, check=False)
+    if rules.returncode != 0 or rules.stdout.strip():
+        log(f"window rules: rc={rules.returncode} {(rules.stdout + rules.stderr).strip()}")
     for action, (_name, key, _extra) in ACTIONS.items():
         args = action_id_args(action)
         kga("doRegister", "as", *args)

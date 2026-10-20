@@ -1,0 +1,18 @@
+[Unit]
+Description=ydotool daemon for Hearside (types dictated text)
+# At boot this can start a moment before /dev/uinput has its "input" group permission and fail with
+# "failed to open uinput device: Permission denied". Never give up; retry every 2 seconds.
+StartLimitIntervalSec=0
+# Installed once for every user (systemctl --global enable); skipped for a user who still has the
+# older per-user install, which runs its own copy on the same socket.
+ConditionPathExists=!%h/.config/systemd/user/ydotoold.service
+# Only accounts allowed to type through /dev/uinput (the "input" group) can run it.
+ConditionGroup=input
+
+[Service]
+ExecStart=/usr/local/bin/ydotoold --socket-path=%t/.ydotool_socket --socket-own=%U:%G
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
