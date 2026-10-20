@@ -133,7 +133,8 @@ else
 fi
 
 bold "All done"
-echo "Each user: log out and back in once. Then, for everyone set up above:"
+echo "Restart the computer (or have each user log out and back in) so the new services and the"
+echo "input group take effect. Then, for everyone set up above:"
 echo "  Win+H        opens the dictation bar and listens; Win+H or its microphone starts/stops"
 echo "               listening, any key stops it, its x closes the bar; drag it anywhere"
 echo "  Meta+Shift+H start/stop live captions (or 'Live Captions (Hearside)' in the app menu)"
