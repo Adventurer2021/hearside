@@ -38,6 +38,8 @@ done
 
 bold() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 ask() { local reply; read -r -p "$1 [y/N] " reply; [[ "$reply" =~ ^[Yy] ]]; }
+# For a recommended "yes": Enter alone answers yes.
+ask_yes() { local reply; read -r -p "$1 [Y/n] " reply; [[ ! "$reply" =~ ^[Nn] ]]; }
 stop() { printf '\nCannot install: %s\n' "$1" >&2; shift; for line in "$@"; do echo "  $line" >&2; done; exit 1; }
 
 # ---- 1. KDE Plasma is required - check that before anything else ------------------------------
@@ -69,7 +71,7 @@ if [ ${#app_args[@]} -eq 0 ] && ! grep -qs '^DICTATION_' "$PREFIX/hearside.env" 
     cpu="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//')"
     echo
     echo "This CPU ($cpu, $(nproc) threads) is on the slow side for live speech recognition."
-    if ask "Use the faster 8-bit model and leave one core free? (recommended here)"; then
+    if ask_yes "Use the faster 8-bit model and leave one core free? (recommended here)"; then
         app_args=(--int8 --threads "$(( $(nproc) - 1 ))")
     fi
 fi
