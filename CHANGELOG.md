@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 (2026-10-21)
+
+**Installed once for every user** of the computer, like Win+H on Windows, and a **Windows-style dictation bar**.
+
+- **Shared install:** `sudo ./install.sh` puts the program, its Python environment and the models in `/opt/hearside` once (~6–7 GB in total, instead of ~7 GB per user). Every regular account is set up (`--users` to choose), the hotkey and typing services start at each user's login, and each user's logs, transcripts, shortcuts and window rules are made automatically at their first login. Re-running the installer sets up accounts added since. The 8-bit model is prepared once for everyone; machine settings live in `/opt/hearside/hearside.env`, per-user overrides still in `~/.config/voice-dictation.env`.
+- **Dictation bar:** Win+H opens a small bar and starts listening. Its 🎤 button, Win+H or the tray icon start and stop listening; typing any key pauses it; the bar stays until its ✕ is clicked. It can be dragged anywhere and reopens in the same place, and never takes keyboard focus. The speech model stays loaded while the bar is open (about 3.3 GB of memory, 2.3 GB in 8-bit mode; no CPU while idle), so listening starts at once instead of after a model load. Also in the application menu as **Dictation (Hearside)**.
+- **Remote desktops:** typing through a RustDesk session now pauses dictation too (its virtual keyboard used to be ignored). Lone Shift/Ctrl/Alt/lock-key presses never pause it. The README explains how to dictate into a remote-desktop window with your own computer's microphone.
+- The dictation bar and the caption window are now ordinary Qt windows on both Wayland and X11, kept on top and focus-free by KWin rules; `gtk4-layer-shell` is no longer needed (or built from source on AlmaLinux/RHEL).
+- **Moving over from 1.0.x:** install 1.1.0 with `--speaker-model-from ~/.cache/huggingface/hub` (the speech model is reused from the old install automatically, so nothing big is downloaded), then each user runs `./remove-per-user-install.sh`. It removes the old copy, its services, its menu entries and, if wanted, its model files (including ones kept in Hugging Face's shared blob store), keeps transcripts and personal settings, and starts the shared Hearside at once. Until then the old copy keeps working and the shared one stays out of its way.
+- Installer: the recommended 8-bit question defaults to yes (`[Y/n]`); SELinux labels are restored on installed files; it ends by advising a restart, since a user session kept alive (for example by an SSH connection) would otherwise keep the old services and groups.
+- `sudo ./uninstall.sh` removes the shared install for everyone and keeps every user's transcripts.
+- Tested on Debian 13 (four machines, including a laptop used by two accounts), AlmaLinux 10.2 (SELinux enforcing) and Kubuntu 26.04 on X11.
+
 ## 1.0.2 (2026-10-14)
 
 - Fixed: a stray space could appear in whatever you were typing. Dictation stops on any keypress, and at the end of every session it typed one space (so the next dictation would not run into the last word). When the session was stopped by typing, that space arrived about a second after your first key, in the middle of your text (e.g. `S D` instead of `SD`). The space is now typed only when dictation is stopped with Win+H (or the tray), and only if the session typed something. The last spoken word is still always typed. Live captions are unaffected. Existing installs: re-run `install.sh`, or replace `~/.local/share/dictation/dictate.py` with `files/dictate.py`.

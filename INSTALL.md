@@ -1,67 +1,57 @@
 # Installing Hearside
 
-This guide takes about 15–30 minutes, most of it waiting for downloads. You'll need:
+Hearside is installed **once per computer**, by someone with `sudo` rights, and then works for every user account on it, the way Win+H works for everyone on Windows. This guide takes about 15–30 minutes, most of it waiting for downloads. You'll need:
 
-- [ ] A Linux computer running **KDE Plasma** 5.27 or newer (Wayland or X11), and **logged into it** while installing; required
+- [ ] A Linux computer with **KDE Plasma** 5.27 or newer (Wayland or X11); required
 - [ ] **Debian / Ubuntu / Kubuntu**, or **Fedora / RHEL / AlmaLinux / Rocky Linux**
 - [ ] **PipeWire** sound (standard on all current releases of those)
 - [ ] A **microphone**
-- [ ] An account with **sudo** rights (you'll type your password once)
+- [ ] **sudo** rights for installing (users don't need them to use Hearside)
 - [ ] **Internet** during installation (~4 GB of downloads; nothing afterwards)
-- [ ] About **6 GB** free disk space, plus **1.5 GB** for the optional speaker labels
+- [ ] About **6–7 GB** free in `/opt` (shared by all users, speaker labels included)
 - [ ] For speaker labels only: a free **Hugging Face** account. Step 4 below shows how to create one; no payment details are needed.
+
+**Upgrading from Hearside 1.0.x?** That version was installed separately in each user's home folder. Install 1.1.0 as below, then see [Moving over from 1.0.x](#moving-over-from-10x): the models are copied from your old install, so nothing big is downloaded again.
 
 ---
 
 ## 1. Check your system (optional, 1 minute)
 
-Open a terminal (Konsole) and run these. Each line shows what you should see:
-
 ```bash
-echo $XDG_CURRENT_DESKTOP     # KDE
-echo $XDG_SESSION_TYPE        # wayland  (x11 also works)
-pactl info | grep "Server Name"   # ...PipeWire...
-df -h ~                       # at least 6G under "Avail"
+./install.sh --check      # "OK: KDE Plasma 6.x.x. This computer can run Hearside."
 ```
 
-Or let the installer check for you, without installing anything:
-
-```bash
-./install.sh --check      # "OK: KDE Plasma 6.x.x ... This computer can run Hearside."
-```
-
-**Hearside requires KDE Plasma.** The installer checks this first and stops if Plasma isn't installed, is older than 5.27, or isn't the desktop you're logged into right now.
+**Hearside requires KDE Plasma.** The installer checks this first and stops if Plasma isn't installed or is older than 5.27.
 
 ## 2. Unpack it
 
 ```bash
 cd ~/Downloads                      # or wherever you saved it
-tar xzf hearside-1.0.2.tar.gz
-cd hearside-1.0.2
+tar xzf hearside-1.1.0.tar.gz
+cd hearside-1.1.0
 ```
 
-(If you received the `.zip` instead, unpack it with `unzip hearside-1.0.2.zip`. Zip files often lose the "executable" flag, so start the installer with `bash install.sh` instead of `./install.sh`. The same goes for `bash uninstall.sh`.)
+(If you received the `.zip` instead, unpack it with `unzip hearside-1.1.0.zip`. Zip files often lose the "executable" flag, so start scripts with `sudo bash install.sh` instead of `sudo ./install.sh`.)
 
 ## 3. Run the installer
 
 ```bash
-./install.sh
+sudo ./install.sh
 ```
 
-Run it as **yourself**, not with `sudo`, while **logged into your Plasma desktop**. Running it in Konsole is simplest; over SSH works too, as long as you're logged into Plasma on that computer at the same time. It asks for your password when it needs it. What happens:
+What happens:
 
-0. **Checks first** that KDE Plasma 5.27+ is installed and is the desktop you're logged into. If not, it stops and says why, before changing anything.
+1. **Checks first** that KDE Plasma 5.27+ is installed. If not, it stops before changing anything.
+2. **Slow computer?** On CPUs with 4 threads or fewer (Intel N100, older Core i3/i5…), it offers the **8-bit model**: about twice as fast, and it gave the same words in testing. Press **Enter** to accept (the recommended answer is the default). You can also choose it yourself: `sudo ./install.sh --int8 --threads 3`.
+3. **System packages and accounts.** It installs Python tools, PipeWire's echo canceller, `bubblewrap` and `ydotool` (which types the dictated text; downloaded from its GitHub release and checksum-verified), and adds **every regular user account** to the `input` group, which dictation needs to type text. To set up only some accounts: `sudo ./install.sh --users "anna ben"`.
+4. **Dictation and live captions**, shared by everyone, in `/opt/hearside`: PyTorch (~1 GB, CPU-only), NVIDIA's speech model (~2.5 GB), the hotkey and typing services (started at each user's login), and **Dictation (Hearside)** / **Live Captions (Hearside)** entries in the application menu.
+5. **Speaker labels (optional).** It asks whether you want them. If you say yes, follow step 4 below when it pauses.
 
-1. **System packages** (asks for your password). It installs Python tools, PipeWire's echo canceller, `bubblewrap`, `ydotool` (to type dictated text; downloaded from its GitHub release and checksum-verified) and, for the floating "Listening" bar, `gtk4-layer-shell` (built from checksum-verified source if your distribution doesn't package it). It also adds you to the `input` group. Your package manager will show the list and ask you to confirm.
-2. **If it says to log out and back in**: do that (on some systems a reboot is needed), then run `./install.sh` again. It skips what's already done.
-3. **Dictation and live captions.** It downloads PyTorch (~1 GB, CPU-only) and NVIDIA's speech model (~2.5 GB), then sets up the Win+H and Meta+Shift+H hotkeys, the caption window, and a "Live Captions (Hearside)" entry in the application menu.
-4. **Speaker labels (optional).** It asks whether you want them. If you say yes, follow step 4 below when it pauses.
-
-**Slow computer?** On CPUs like the Intel N100, the installer offers an **8-bit mode**. Say yes: it's about twice as fast and gave the same words in testing. You can also choose it yourself: `./install.sh --int8 --threads 3`.
+It ends with **"All done"**. It is safe to re-run: it repairs or upgrades an install, and sets up user accounts added since.
 
 ## 4. Speaker labels: the one-time Hugging Face step
 
-The speaker-labelling model (pyannote "community-1") is free, but its authors require each user to accept their terms before downloading. You do this once, on their website:
+The speaker-labelling model (pyannote "community-1") is free, but its authors require each downloader to accept their terms first. You do this once, on their website:
 
 1. **Create a free account** at <https://huggingface.co/join> and confirm your email address.
 2. **Accept the model's terms.** While signed in, open <https://huggingface.co/pyannote/speaker-diarization-community-1>. Scroll down past "Use this model" to the box titled *"You need to agree to share your contact information to access this model."*
@@ -73,27 +63,36 @@ The speaker-labelling model (pyannote "community-1") is free, but its authors re
    - A "fine-grained" token also works, but only if you tick **"Read access to contents of all public gated repos you can access"**.
 4. **Back in the installer**, press Enter, choose **Paste an access token** (arrow keys, then Enter), and paste it with **Ctrl+Shift+V**. Nothing shows as you paste; that's normal. If it asks about git credentials, answer **n**.
 
-The installer downloads the model (33 MB), then **logs your computer out of Hugging Face again**, so no token stays stored. You can also delete the token on the website afterwards.
+The installer downloads the model (33 MB), then **logs the computer out of Hugging Face again**, so no token stays stored. You can also delete the token on the website afterwards.
 
 What you agreed to: pyannote's authors receive your account's username and email, and may occasionally email you about their models and paid services; you can unsubscribe. **No audio or transcripts are ever sent to them or to Hugging Face.** Speaker labelling runs in a sandbox that has no network access at all.
 
-**Common problem:** *"403 … not in the authorized list"* means step 2 wasn't completed. Accept the terms, then run `./install-speakers.sh`.
+**Common problem:** *"403 … not in the authorized list"* means step 2 wasn't completed. Accept the terms, then run `sudo ./install-speakers.sh`.
 
-**Setting up a second computer of your own:** you don't need to log in again. Copy the model from the first computer before running the installer on the second (replace `OTHER-COMPUTER` with its name or address):
+**Another computer of your own:** no need to log in again. Copy the model folder from a computer that has it, then point the installer at it:
 
 ```bash
 M=models--pyannote--speaker-diarization-community-1
-tar -h -C ~/.cache/huggingface/hub -cf - $M/snapshots $M/refs \
-  | ssh OTHER-COMPUTER 'mkdir -p ~/.cache/huggingface/hub && tar -C ~/.cache/huggingface/hub -xf -'
+ssh FIRST-COMPUTER "tar -h -C /opt/hearside/hf/hub -cf - $M/snapshots $M/refs" | (mkdir -p ~/hearside-model && tar -C ~/hearside-model -xf -)
+sudo ./install.sh --speaker-model-from ~/hearside-model
 ```
 
-## 5. Try it
+(On a computer with the older 1.0.x install the model is in `~/.cache/huggingface/hub` instead; see below.)
+
+## 5. Restart
+
+Restart the computer, or have each user log out and back in once, so their new `input` group membership and the Hearside services take effect.
+
+## 6. Try it
 
 **Dictation**
 1. Click into any text field (a text editor, a browser box…).
-2. Press **Win+H**. After about 3 seconds (longer on slow computers), a small **● Listening** bar appears at the top of the screen.
+2. Press **Win+H**. The **dictation bar** appears and, after a few seconds the first time (longer on slow computers), says **Listening**.
 3. Speak. Words appear as you talk.
-4. Press **Win+H** again, or **any key**, to stop.
+4. **Pause** with the bar's 🎤 button, **Win+H**, or by **typing any key**. The bar stays on screen: click 🎤 or press Win+H to talk again; listening starts at once, since the model stays loaded while the bar is open.
+5. **Drag** the bar anywhere (grab it anywhere except its buttons); it reopens in the same place. **✕** closes it.
+
+The bar never takes keyboard focus, so clicking it leaves your cursor in the text field. It can also be opened from the application menu (**Dictation (Hearside)**). While it is open, its tray icon starts/stops listening (left click) and closes it (right-click menu).
 
 **Live captions**
 1. Press **Meta+Shift+H**, or choose **Live Captions (Hearside)** from the application menu.
@@ -105,13 +104,17 @@ tar -h -C ~/.cache/huggingface/hub -cf - $M/snapshots $M/refs \
 
 **Speaker labels:** a few minutes after you stop (about 15 minutes per hour of audio on a fast computer, longer on slow ones), a notification says the `-speakers.txt` file is ready in `~/Transcripts/`. Rename "Speaker 1", "Speaker 2"… with Find & Replace (Kate: **Ctrl+R**).
 
-## 6. Settings
+**Through a remote desktop (RustDesk and similar):** remote-desktop tools don't pass your microphone across. Open the dictation bar on **your own** computer, click into the remote window, and click the bar's 🎤; the words are typed on your computer and the remote-desktop tool forwards the keystrokes. Typing through a RustDesk session also pauses dictation running on the remote computer.
 
-Put any of these in `~/.config/voice-dictation.env`, one per line (e.g. `CAPTION_KEEP_AUDIO=0`). They take effect at the next session.
+## 7. Settings
+
+**For the whole computer:** `/opt/hearside/hearside.env` (written by the installer; edit with `sudo`).
+**For one user:** `~/.config/voice-dictation.env`, which overrides the computer's settings.
+One setting per line (e.g. `CAPTION_KEEP_AUDIO=0`). They take effect at the next session.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `DICTATION_INT8` | `0` | `1` = 8-bit speech model (faster; for slow CPUs) |
+| `DICTATION_INT8` | `0` | `1` = 8-bit speech model (faster; for slow CPUs). The installer prepares it once for everyone. |
 | `DICTATION_THREADS` | `4` | CPU cores for live recognition |
 | `CAPTION_FONT_SIZE` | `22` | Starting text size in pixels (A−/A+ overrides and remembers) |
 | `CAPTION_TRANSCRIPT_DIR` | `~/Transcripts` | Where transcripts and recordings go |
@@ -121,27 +124,46 @@ Put any of these in `~/.config/voice-dictation.env`, one per line (e.g. `CAPTION
 | `CAPTION_KEEP_AUDIO` | `1` | `0` = delete the `.wav` recording once the labelled transcript is made |
 | `SPEAKER_THREADS` | all but 2 | CPU cores for the after-call labelling (runs at low priority) |
 
-The hotkeys can be changed in **System Settings → Shortcuts → Voice Dictation**.
+Each user can change their hotkeys in **System Settings → Shortcuts → Voice Dictation**.
+
+## Adding a user account later
+
+Run `sudo ./install.sh` again (it only sets up what's missing), or just add the account to the `input` group: `sudo usermod -aG input NAME`. Hearside starts for them at their next login.
+
+## Moving over from 1.0.x
+
+1.0.x lived in each user's `~/.local/share/dictation` (~7 GB each, with the models in `~/.cache/huggingface/hub`). To switch a computer over:
+
+1. **Install 1.1.0**, reusing the models from your old install instead of downloading them:
+   ```bash
+   sudo ./install.sh --speaker-model-from ~/.cache/huggingface/hub
+   ```
+   (The speech model is reused automatically from the account that runs `sudo`.) Until step 2, the old copy keeps working and the new one stays out of its way.
+2. **Each user with an old copy** then runs, as themselves:
+   ```bash
+   ./remove-per-user-install.sh
+   ```
+   It stops and removes the old copy, its menu entries and (if you agree) its model copies, keeps transcripts and personal settings, and starts the shared Hearside straight away. No restart needed.
 
 ## Other desktops
 
-Hearside supports **KDE Plasma only**. Its hotkeys, its caption window that stays on top without taking focus, and its floating "Listening" bar all use KDE's own services, so the installer refuses to run on GNOME, Cinnamon, XFCE and others. (The speech engine underneath is desktop-neutral, so support could be added later.)
+Hearside supports **KDE Plasma only**. Its hotkeys and its two windows that stay on top without taking focus rely on KDE's own services, so the installer refuses to run on GNOME, Cinnamon, XFCE and others. (The speech engine underneath is desktop-neutral, so support could be added later.)
 
 ## Troubleshooting
 
 | Problem | What to check |
 |---|---|
-| Win+H / Meta+Shift+H does nothing | `systemctl --user status dictation-hotkey`. In `~/.local/share/dictation/timeline.log`, look for `[listener] registered toggle-dictation` / `toggle-captions`. A `WARNING ... assigned no key` line means another shortcut already uses that key; change one in System Settings → Shortcuts. |
-| Listening, but nothing is typed | `systemctl --user status ydotoold`, and check you're in the `input` group (`id -nG`). If you just installed, log out and back in. |
+| Win+H / Meta+Shift+H does nothing | `systemctl --user status hearside-hotkey`. In `~/.local/share/hearside/timeline.log`, look for `[listener] registered toggle-dictation` / `toggle-captions`. A `WARNING ... assigned no key` line means another shortcut already uses that key; change one in System Settings → Shortcuts. If the service shows "skipped, unmet condition", the user isn't in the `input` group yet (log out and back in) or still has a 1.0.x copy (run `remove-per-user-install.sh`). |
+| Listening, but nothing is typed | `systemctl --user status hearside-ydotoold`, and check you're in the `input` group (`id -nG`). Right after installing, restart or log out and back in. |
 | "No audio captured", or captions stay empty | Check the input device in System Settings → Sound, and look at "peak mic level" in `timeline.log`. |
-| Caption window appears behind other windows or takes focus | `grep -A3 hearside-captions ~/.config/kwinrulesrc`. If nothing shows, run `~/.local/share/dictation/setup-caption-window-rule.sh`. |
+| The bar or caption window takes focus or hides behind windows | Look in **System Settings → Window Rules** for "Dictation bar (Hearside)" and "Live Captions (Hearside)". If they're missing, run `/opt/hearside/setup-window-rules.sh --force` and log out and back in. |
 | Call audio doubled / echoey in captions | Look for `audio: mic=echo-cancelled` in `timeline.log`. If it says `plain`, PipeWire's WebRTC echo canceller is missing: Debian/Ubuntu `libspa-0.2-modules`, Fedora/RHEL `pipewire-libs`. |
-| No speaker-labelled file appeared | `~/.local/share/dictation/speakers.log` shows each run and any error. `FAILED: ... sandbox` means neither `unshare` nor `bwrap` works there; install `bubblewrap`. |
+| No speaker-labelled file appeared | `~/.local/share/hearside/speakers.log` shows each run and any error. `FAILED: ... sandbox` means neither `unshare` nor `bwrap` works there; install `bubblewrap`. |
 | Too slow / computer runs hot | Use 8-bit mode (`DICTATION_INT8=1`) and fewer threads (`DICTATION_THREADS=2`). |
 
-Logs never contain what was said, only timings and counts, so they're safe to share when asking for help. Python error messages go to `~/.local/share/dictation/debug.log`.
+Logs never contain what was said, only timings and counts, so they're safe to share when asking for help. Python error messages go to `~/.local/share/hearside/debug.log`.
 
 ## Updating and uninstalling
 
-- **Update:** unpack the newer version and run its `./install.sh`. Your settings and transcripts are kept.
-- **Uninstall:** `./uninstall.sh`. It keeps `~/Transcripts`, and asks before removing the models (~2.5 GB) and the system-level parts.
+- **Update:** unpack the newer version and run its `sudo ./install.sh`. Settings and transcripts are kept.
+- **Uninstall:** `sudo ./uninstall.sh`. It removes Hearside for everyone and keeps every user's `~/Transcripts`.

@@ -2,17 +2,21 @@
 
 ## Pieces
 
+Everything that is the same for every user is installed once, read-only, under `/opt/hearside`; everything personal is made in each user's home at login.
+
 | Piece | Lives in | Role |
 |---|---|---|
-| `hotkey_listener.py` | `~/.local/share/dictation/`, run by `dictation-hotkey.service` (systemd user unit, starts with the desktop session) | Registers **Meta+H** and **Meta+Shift+H** with KDE's global-shortcut service (kglobalaccel) over D-Bus, and launches `dictate.sh` / `dictate.sh --caption` on each press. KWin swallows the keypress. Loads no model and never reads or grabs the keyboard. |
-| `dictate.py` (via `dictate.sh`) | same | One process per session. Loads the speech model (~3 s; ~8 s on an N100), records with `parecord`, and either types text with `ydotool` (dictation) or feeds the caption window and transcript (`--caption`). Exits completely afterwards. Launching it again while a session runs stops that session. Dictation and captions have separate PID files, so they run independently. |
-| `indicator.py` / `indicator_x11.py` | same | Dictation's floating "● Listening" bar: a Wayland layer-shell overlay with keyboard interactivity off, or an override-redirect X11 window that is never focused. |
-| `captions.py` | same, dictation venv | The caption window: an ordinary Qt window (movable, resizable, A−/A+, scroll-back, Stop). Exit code 0 (user closed it) tells `dictate.py` to stop. |
-| `setup-caption-window-rule.sh` | run by the installer | A KWin rule keyed on the window's app id `hearside-captions`: keep above, never accept focus, skip the task switcher, remember position and size. |
-| `captions-echo-cancel.conf` | same | A private `pipewire -c` process started per captions session: PipeWire's WebRTC echo canceller in monitor mode, producing the source `captions_aec_source` (mic minus what the speakers play). |
-| `speakers.sh` → `diarize.py` → `label_speakers.py` | same; `speakers-venv` for pyannote | After a captions session: who-spoke-when, then per-turn re-transcription, inside a network-less sandbox. |
-| `ydotoold.service` | systemd user unit | The daemon `ydotool` types through (`/dev/uinput`, which the `input` group may use via `99-uinput.rules`). |
-| Models | `~/.cache/huggingface/hub/` | Loaded with `HF_HUB_OFFLINE=1`; sessions make no network calls. |
+| `hotkey_listener.py` | `/opt/hearside`, run by `hearside-hotkey.service` (systemd **user** unit in `/usr/lib/systemd/user`, enabled for everyone with `systemctl --global`, starts with each user's desktop session) | Writes that user's KWin window rules if missing (`setup-window-rules.sh`), registers **Meta+H** and **Meta+Shift+H** with KDE's global-shortcut service (kglobalaccel) over D-Bus, and launches `dictate.sh` / `dictate.sh --caption` on each press. KWin swallows the keypress. Loads no model and never reads or grabs the keyboard. |
+| `dictate.py` (via `dictate.sh`) | `/opt/hearside`; logs in `~/.local/share/hearside/` | **Dictation:** one process per open bar. Loads the speech model once (~3 s; ~7 s on an i5-6400 in 8-bit mode), then listens each time the bar's 🎤, Win+H (a second run sends `SIGUSR1`) or the tray asks, typing with `ydotool`; a key press (physical keyboard or a remote-desktop keyboard) ends a listen. Closing the bar ends the process. **Captions (`--caption`):** one process per session, as before; a second run stops it. Dictation and captions have separate PID files, so they run independently. |
+| `bar.py` | `/opt/hearside`, venv | The dictation bar: a frameless Qt window (app id `hearside-bar`) with 🎤, status and ✕; dragging calls the compositor's own move (`startSystemMove`). Talks to `dictate.py` over stdin/stdout (`loading/starting/listening/idle` in, `toggle/close` out) and exits when its stdin closes. |
+| `captions.py` | `/opt/hearside`, venv | The caption window: an ordinary Qt window (movable, resizable, A−/A+, scroll-back, Stop). Exit code 0 (user closed it) tells `dictate.py` to stop. |
+| `setup-window-rules.sh` | run per user at login | Two KWin rules, keyed on app ids `hearside-bar` and `hearside-captions`: keep above, never accept focus, skip switcher/pager (and the task bar for the bar), remember position (and size for captions). Versioned, so it only writes when a rule is missing or out of date. |
+| `captions-echo-cancel.conf` | `/opt/hearside` | A private `pipewire -c` process started per captions session: PipeWire's WebRTC echo canceller in monitor mode, producing the source `captions_aec_source` (mic minus what the speakers play). |
+| `speakers.sh` → `diarize.py` → `label_speakers.py` | `/opt/hearside`; `speakers-venv` for pyannote | After a captions session: who-spoke-when, then per-turn re-transcription, inside a network-less sandbox, as the user. |
+| `hearside-ydotoold.service` | systemd user unit, global | The daemon `ydotool` types through (`/dev/uinput`, which the `input` group may use via `99-uinput.rules`), one per logged-in user on `$XDG_RUNTIME_DIR/.ydotool_socket`. |
+| Models | `/opt/hearside/hf` (`HF_HOME`); the 8-bit model as `/opt/hearside/model-int8.pt` | Downloaded or copied by the installer as root; loaded with `HF_HUB_OFFLINE=1`, so sessions make no network calls. |
+
+Both user units carry `ConditionGroup=input` (only accounts set up for Hearside run them) and `ConditionPathExists=!%h/.config/systemd/user/<old unit>`, so a user who still has a 1.0.x per-user install keeps using it and the two never run at once.
 
 ## Audio path for captions
 
@@ -44,10 +48,13 @@ Live recognition restarts at a quiet moment about every 2 minutes (`CAPTION_SEGM
 ## Design decisions learned the hard way
 
 - **Never grab the keyboard** (`EVIOCGRAB`). An early version did, and KDE's lock screen then couldn't read the real keyboard, so the password couldn't be typed. The listener leaves the keyboard alone; dictation's "any key stops" watcher only reads it, and captions don't touch it at all.
-- **No resident model daemon.** A version that kept the model loaded leaked CPU (200–670%) after sessions. Each session loads fresh and exits. The few seconds of startup are the trade-off.
+- **No always-running model daemon.** An early version that kept the model loaded all the time leaked CPU (200–670%) after sessions, so 1.0 loaded it fresh for each session. 1.1's dictation bar keeps the model only while the bar is open; measured after 14 hours open on three machines: 0% CPU while idle (memory 2.3–3.3 GB). Closing the bar ends the process.
+- **One install, per-user sessions.** Win+H must type into the desktop of whoever is at the screen, so the hotkey listener and `ydotoold` run inside each user's session (global user units), while everything heavy is shared and read-only in `/opt/hearside`.
+- **A user session kept alive skips new services.** With an SSH connection open, the user's systemd manager survives logout, so new global units and a new `input` group membership aren't picked up. The installer advises a restart; `remove-per-user-install.sh` starts the shared services itself.
+- **Remote-desktop keyboards count as typing.** Typing through RustDesk arrives on its virtual keyboard ("RustDesk UInput Keyboard"), which 1.0 ignored along with ydotool's own; 1.1 watches it, but skips lone modifier keys, which remote-desktop tools send to sync keyboard state.
 - **KDE "Command" custom shortcuts were unreliable** for launching this (their systemd-run units often never ran). Registering through kglobalaccel's D-Bus API works reliably.
 - **The listener follows the desktop session** (`PartOf=graphical-session.target`, plus a restart whenever kglobalaccel's D-Bus owner changes). Otherwise, after logout and login with user linger on, KWin holds the shortcut but marks it inactive.
 - **`parecord --latency-msec=50` is essential.** By default audio arrives in ~2 s bursts, which makes every word lag.
 - **Last-word bug:** the stock `TextIteratorStreamer` holds the last word back until the next one starts. A custom streamer emits each word immediately, with clean end-of-stream handling.
-- **Dictation's bar must never take focus**, or typing breaks. Hence layer-shell (or an override-redirect window on X11) rather than an "always on top" window. The caption window is different: it's an ordinary window people can move, and a KWin rule supplies "on top, never focused".
+- **Dictation's bar must never take focus**, or typing breaks. 1.0 used a layer-shell overlay (Wayland) or an override-redirect window (X11), which can't be dragged smoothly. 1.1's bar is an ordinary frameless window like the caption window, with a KWin rule supplying "on top, never focused"; clicking its 🎤 leaves the cursor in the text field on both Wayland and X11 (tested).
 - **Copying the gated model between machines needs `tar -h`.** huggingface_hub 1.x stores the real files in a shared blob store outside the model's folder.

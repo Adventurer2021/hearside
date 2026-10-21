@@ -24,7 +24,6 @@ Attribution for the speaker-labelling model: *"pyannote speaker-diarization-comm
 | [NumPy](https://numpy.org), [librosa](https://librosa.org) | Audio processing | BSD-3-Clause, ISC |
 | [python-evdev](https://github.com/gvalkov/python-evdev) | Detecting a keypress to stop dictation | BSD-3-Clause |
 | [ydotool](https://github.com/ReimuNotMoe/ydotool) v1.0.4 | Typing dictated text into apps | AGPL-3.0 (installed unmodified as a separate program; this package only runs it) |
-| [gtk4-layer-shell](https://github.com/wmww/gtk4-layer-shell) | The floating "Listening" bar on Wayland | MIT |
 | [PipeWire](https://pipewire.org) with the [WebRTC audio processing](https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing) echo canceller | Audio capture and echo cancellation | MIT; BSD-3-Clause |
 | [bubblewrap](https://github.com/containers/bubblewrap) | Network-less sandbox for speaker labelling (where `unshare` isn't allowed) | LGPL-2.0-or-later |
 
