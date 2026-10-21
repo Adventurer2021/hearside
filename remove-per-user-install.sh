@@ -49,7 +49,17 @@ if ls -d "$M"/models--nvidia--nemotron-speech-streaming-en-0.6b "$M"/models--pya
     echo
     echo "Your own copies of the speech models (~2.5 GB) are in $M; the shared install has its own."
     if ask "Remove your copies?"; then
+        # Newer huggingface_hub versions keep the real files in a shared store ($M/blobs) and only link
+        # to them from the model folders; note those files first, and delete each once nothing links to it.
+        mapfile -t targets < <(find "$M"/models--nvidia--nemotron-speech-streaming-en-0.6b \
+            "$M"/models--pyannote--speaker-diarization-community-1 -type l -exec readlink -f {} + 2>/dev/null \
+            | grep -F "$M/blobs/" | sort -u)
         rm -rf "$M"/models--nvidia--nemotron-speech-streaming-en-0.6b "$M"/models--pyannote--speaker-diarization-community-1
+        for t in "${targets[@]}"; do
+            name="$(basename "$t")"
+            [ -f "$t" ] && [ -z "$(find "$M" -lname "*$name" -print -quit 2>/dev/null)" ] && rm -f "$t"
+        done
+        find "$M/blobs" -mindepth 1 -type d -empty -delete 2>/dev/null || true
         echo "removed (other Hugging Face models, if any, were left alone)"
     fi
 fi
