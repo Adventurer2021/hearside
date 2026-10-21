@@ -49,5 +49,19 @@ if ls -d "$M"/models--nvidia--nemotron-speech-streaming-en-0.6b "$M"/models--pya
     fi
 fi
 
+echo "== Starting the shared Hearside for '$USER' =="
+# At this login the shared services stood aside for the old copy; start them now rather than
+# relying on a logout (a lingering user session, e.g. an open SSH connection, would skip them).
+systemctl --user daemon-reload 2>/dev/null || true
+if id -nG | grep -qw input; then
+    systemctl --user start hearside-ydotoold.service hearside-hotkey.service 2>/dev/null || true
+    systemctl --user is-active hearside-ydotoold.service hearside-hotkey.service | paste -sd' ' \
+        | sed 's/^/typing helper, hotkeys: /'
+else
+    echo "'$USER' isn't in the 'input' group yet (ask whoever installed Hearside to re-run sudo ./install.sh),"
+    echo "then log out and back in."
+fi
+
 echo
-echo "Done. Log out and back in: Win+H and Meta+Shift+H then use the shared Hearside."
+echo "Done. Win+H and Meta+Shift+H now use the shared Hearside (after a logout/login if anything above"
+echo "isn't 'active')."
