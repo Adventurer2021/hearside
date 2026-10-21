@@ -20,7 +20,7 @@ Attribution for the speaker-labelling model: *"pyannote speaker-diarization-comm
 | [pyannote.audio](https://github.com/pyannote/pyannote-audio) | Runs the speaker-labelling model | MIT |
 | [PyTorch](https://pytorch.org) (CPU build) | Runs both models | BSD-3-Clause |
 | [Hugging Face Transformers](https://github.com/huggingface/transformers), [huggingface_hub](https://github.com/huggingface/huggingface_hub), [Accelerate](https://github.com/huggingface/accelerate) | Loading and running the speech model | Apache-2.0 |
-| [Qt for Python (PySide6)](https://doc.qt.io/qtforpython/) | Caption window, tray icon, hotkey listener | LGPL-3.0 (used unmodified, as a separately installed library) |
+| [Qt for Python (PySide6)](https://doc.qt.io/qtforpython/) | Dictation bar, caption window, tray icon, hotkey listener | LGPL-3.0 (used unmodified, as a separately installed library) |
 | [NumPy](https://numpy.org), [librosa](https://librosa.org) | Audio processing | BSD-3-Clause, ISC |
 | [python-evdev](https://github.com/gvalkov/python-evdev) | Detecting a keypress to stop dictation | BSD-3-Clause |
 | [ydotool](https://github.com/ReimuNotMoe/ydotool) v1.0.4 | Typing dictated text into apps | AGPL-3.0 (installed unmodified as a separate program; this package only runs it) |
