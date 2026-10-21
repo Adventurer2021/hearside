@@ -52,7 +52,18 @@ fi
 echo "Python environment ready."
 
 echo "== Speech model (first install downloads ~2.5 GB; dictation itself runs offline) =="
+# An older per-user install (1.0.x) of the user running sudo already has the model: copy it instead
+# of downloading it again. -h: huggingface_hub links into a blob store; copy the real files.
+M=models--nvidia--nemotron-speech-streaming-en-0.6b
+OLD_HUB="$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)/.cache/huggingface/hub"
+if ! ls "$PREFIX/hf/hub/$M"/snapshots/*/model.safetensors >/dev/null 2>&1 \
+        && ls "$OLD_HUB/$M"/snapshots/*/model.safetensors >/dev/null 2>&1; then
+    echo "Copying it from $OLD_HUB (older per-user install) instead of downloading..."
+    install -d "$PREFIX/hf/hub"
+    tar -h -C "$OLD_HUB" -cf - "$M/snapshots" "$M/refs" | tar -C "$PREFIX/hf/hub" --no-same-owner -xf -
+fi
 # Only the transformers weights + configs; the repo also carries ~3 GB of .nemo/.gguf copies we don't use.
+# (With the model already present this only checks it, online.)
 HF_HOME="$PREFIX/hf" "$PREFIX/venv/bin/python3" -c \
     "from huggingface_hub import snapshot_download; print(snapshot_download('$MODEL_ID', allow_patterns=['*.json', 'model.safetensors']))"
 
