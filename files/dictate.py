@@ -87,8 +87,16 @@ NUM_LOOKAHEAD_TOKENS = 6  # valid: 13, 6, 1, 0 - lower is faster but drops words
 SAMPLE_RATE = 16000
 STOP_TAIL_SECONDS = 0.5
 YDOTOOL_SOCKET = f"/run/user/{os.getuid()}/.ydotool_socket"
-IGNORE_DEVICE_SUBSTRINGS = ["ydotool", "rustdesk", "uinput"]
+# Virtual keyboards whose keys are not the user typing (ydotool is dictation's own output).
+IGNORE_DEVICE_SUBSTRINGS = ["ydotool", "uinput"]
+# ...except remote-desktop keyboards: someone typing through RustDesk should stop dictation too.
+REMOTE_KEYBOARD_SUBSTRINGS = ["rustdesk"]
 META_KEYS = {evdev.ecodes.KEY_LEFTMETA, evdev.ecodes.KEY_RIGHTMETA}
+# Pressed alone these aren't typing (and remote-desktop tools send them to sync keyboard state);
+# the key that follows them still stops dictation.
+MODIFIER_KEYS = {getattr(evdev.ecodes, k) for k in (
+    "KEY_LEFTSHIFT", "KEY_RIGHTSHIFT", "KEY_LEFTCTRL", "KEY_RIGHTCTRL", "KEY_LEFTALT", "KEY_RIGHTALT",
+    "KEY_CAPSLOCK", "KEY_NUMLOCK", "KEY_SCROLLLOCK")}
 
 
 def log(event: str) -> None:
@@ -379,7 +387,9 @@ def real_keyboard_devices() -> list[str]:
         is_kbd = evdev.ecodes.EV_KEY in caps and evdev.ecodes.KEY_A in caps.get(evdev.ecodes.EV_KEY, [])
         if not is_kbd:
             continue
-        if any(s in dev.name.lower() for s in IGNORE_DEVICE_SUBSTRINGS):
+        name = dev.name.lower()
+        remote = any(s in name for s in REMOTE_KEYBOARD_SUBSTRINGS)
+        if not remote and any(s in name for s in IGNORE_DEVICE_SUBSTRINGS):
             continue
         paths.append(path)
     return paths
@@ -592,10 +602,12 @@ def listen(processor, model, stop_event: threading.Event, listening_started: thr
                     if event.code in META_KEYS:
                         meta_held = event.value != 0
                         continue
+                    if event.code in MODIFIER_KEYS:
+                        continue
                     # Keys pressed with Meta held are a Win+H stop, handled by the second
                     # invocation; treating them as typing too would race it into a new session.
                     if event.value == 1 and not meta_held:
-                        log("keypress -> stopping")
+                        log(f"keypress ({key.fileobj.name}) -> stopping")
                         stopped_by_keypress[0] = True
                         stop_event.set()
                         return
