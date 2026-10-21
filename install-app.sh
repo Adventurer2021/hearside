@@ -119,6 +119,11 @@ Categories=Utility;Accessibility;
 StartupNotify=false
 EOF
 update-desktop-database -q /usr/share/applications 2>/dev/null || true
+# SELinux systems (AlmaLinux/RHEL/Fedora): make sure everything carries its default label.
+if command -v restorecon >/dev/null; then
+    restorecon -R "$PREFIX" "$UNIT_DIR"/hearside-*.service /usr/share/applications/hearside-*.desktop \
+        /usr/share/icons/hicolor/scalable/apps/dictation-*.svg 2>/dev/null || true
+fi
 
 echo "== Installed =="
 du -sh "$PREFIX" | sed 's/^/size: /'
