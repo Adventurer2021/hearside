@@ -29,6 +29,11 @@ echo "== Old files =="
 # Keep the old logs next to the new ones, in case they are wanted later.
 mkdir -p "$HOME/.local/share/hearside/old-logs"
 cp -p "$OLD"/*.log "$OLD"/*.log.1 "$HOME/.local/share/hearside/old-logs/" 2>/dev/null || true
+# Menu entries that start the old copy (including ones from before it was called Hearside).
+grep -l -F "$OLD/" "$HOME"/.local/share/applications/*.desktop 2>/dev/null | while read -r entry; do
+    echo "removing old menu entry $(basename "$entry")"
+    rm -f "$entry"
+done
 rm -rf "$OLD"
 rm -f "$HOME/.local/share/icons/hicolor/scalable/apps/dictation-idle.svg" \
       "$HOME/.local/share/icons/hicolor/scalable/apps/dictation-listening.svg" \
