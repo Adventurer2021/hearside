@@ -98,7 +98,8 @@ The bar never takes keyboard focus, so clicking it leaves your cursor in the tex
 1. Press **Meta+Shift+H**, or choose **Live Captions (Hearside)** from the application menu.
 2. A black caption window appears and stays on top of other windows, without ever taking your keyboard focus, so keep typing as normal.
 3. **Move and resize** it like any window; it remembers where you put it. **A− / A+** change the text size. Scroll up to re-read earlier captions.
-4. Stop with the red **■ Stop** button, by closing the window, with **Meta+Shift+H**, or by clicking the tray icon. A notification shows where the transcript was saved.
+4. **⏸ Pause** stops listening without closing the window (nothing is heard or saved while paused); **▶ Resume** carries on in the same transcript, which notes the gap as `[paused 10:42:05 – 10:55:31]`. The tray icon's right-click menu pauses and resumes too.
+5. Stop with the red **■ Stop** button, by closing the window, with **Meta+Shift+H**, or by clicking the tray icon. A notification shows where the transcript was saved.
 
 **What captions hear:** your microphone **plus** whatever your computer plays (Zoom, Webex, a browser…). If you use speakers rather than headphones, that's fine: an echo canceller removes the speaker sound from your mic, so call audio isn't captured twice. For a **phone call**, put the phone on speaker next to your microphone.
 

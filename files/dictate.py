@@ -184,10 +184,9 @@ def indicator_command() -> "list[str] | None":
 def start_indicator(cmd: "list[str]") -> "subprocess.Popen | None":
     # Separate process that exits when its stdin closes, including if this
     # process dies, so it can't be left on screen. The dictation bar reports
-    # clicks on its stdout.
+    # clicks on its stdout, and the caption window its Pause/Resume clicks.
     try:
-        return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=None if CAPTION_MODE else subprocess.PIPE,
-                                text=True)
+        return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     except OSError as exc:
         log(f"indicator failed to start (dictation unaffected): {exc!r}")
         return None
@@ -276,8 +275,37 @@ class CaptionOutput:
         self.last_char = ""
         self.line_len = 0
         self.chars = 0
+        self.paused_at = None
+        # Text comes from the recognition thread, pause notes from the Qt thread.
+        self.lock = threading.Lock()
+
+    def pause(self) -> None:
+        with self.lock:
+            self.paused_at = datetime.datetime.now()
+
+    def resume(self) -> None:
+        with self.lock:
+            self._note_pause(datetime.datetime.now().strftime("%H:%M:%S"))
+
+    def _note_pause(self, until: str) -> None:
+        # Only the transcript and window get the note; it doesn't count as captioned text.
+        if self.paused_at is None:
+            return
+        note = f"[paused {self.paused_at:%H:%M:%S} – {until}]"
+        self.paused_at = None
+        self.file.write(f"\n{note}")
+        self.file.flush()
+        if self.chars:
+            send_indicator(self.window, json.dumps({"newline": True}))
+        send_indicator(self.window, json.dumps({"text": note}))
+        self.last_text_time = None  # the next words start a fresh timestamped line
+        self.line_len = 0
 
     def write(self, text: str) -> None:
+        with self.lock:
+            self._write(text)
+
+    def _write(self, text: str) -> None:
         now = time.time()
         paused = self.last_text_time is None or now - self.last_text_time > PAUSE_NEWLINE_SECONDS
         long_line = self.line_len > LONG_LINE_CHARS and self.last_char in ".?!"
@@ -301,6 +329,8 @@ class CaptionOutput:
     def close(self) -> "tuple[str, str | None] | None":
         if self.audio:
             self.audio.close()
+        if self.chars:
+            self._note_pause("stopped")
         if self.chars == 0:
             self.file.close()
             os.remove(self.path)
@@ -488,6 +518,7 @@ def listen(processor, model, stop_event: threading.Event, listening_started: thr
     """One listening run: from the microphone into the focused window (dictation) or the caption
     window and transcript (captions), until stop_event is set or, for dictation, a key is pressed."""
     audio_q: "queue.Queue[bytes | None]" = queue.Queue()
+    paused = session.get("paused")  # captions only: set while the user has paused
     peak_rms = [0.0]
     recorder = None
     if CAPTION_MODE:
@@ -534,6 +565,7 @@ def listen(processor, model, stop_event: threading.Event, listening_started: thr
 
         leftover = b""
         tail_bytes_left = None
+        was_paused = False
         while tail_bytes_left is None or tail_bytes_left > 0:
             chunk = mic.stdout.read(4096)
             if not chunk:
@@ -543,6 +575,22 @@ def listen(processor, model, stop_event: threading.Event, listening_started: thr
             chunk = chunk[:len(chunk) - len(chunk) % 2]
             if not chunk:
                 continue
+            if paused is not None and paused.is_set():
+                # Paused: nothing is heard or saved. The recording gets silence so the speaker-labelled
+                # transcript's times still line up, and the computer audio waiting meanwhile is dropped.
+                if computer is not None:
+                    with backlog_lock:
+                        backlog.clear()
+                if recorder is not None:
+                    recorder.write(bytes(len(chunk) * (2 if computer is not None else 1)))
+                if not was_paused:
+                    # A second of silence lets the model finish the word it was in the middle of.
+                    was_paused = True
+                    audio_q.put(bytes(SAMPLE_RATE * 2))
+                if tail_bytes_left is None and stop_event.is_set():
+                    tail_bytes_left = 0
+                continue
+            was_paused = False
             if computer is None:
                 mixed = chunk
                 if recorder is not None:
@@ -917,8 +965,20 @@ def main_captions() -> None:
     tray = QSystemTrayIcon()
     tray.setIcon(QIcon.fromTheme("dictation-idle"))
     tray.setToolTip(f"{MODE_NAME}: loading...")
-    # The tray icon is another mouse way to stop captions.
-    tray.activated.connect(lambda _reason: stop_event.set())
+    paused = threading.Event()
+    pause_requests: "queue.Queue[str]" = queue.Queue()
+    # A click on the tray icon is another mouse way to stop captions; its menu also pauses.
+    menu = QMenu()
+    pause_action = QAction("Pause captions")
+    pause_action.setEnabled(False)  # until listening has started
+    pause_action.triggered.connect(lambda: pause_requests.put("toggle"))
+    stop_action = QAction("Stop captions")
+    stop_action.triggered.connect(stop_event.set)
+    menu.addAction(pause_action)
+    menu.addAction(stop_action)
+    tray.setContextMenu(menu)
+    tray.activated.connect(
+        lambda reason: stop_event.set() if reason == QSystemTrayIcon.ActivationReason.Trigger else None)
     tray.show()
     bar_cmd = indicator_command()
     use_bar = bar_cmd is not None
@@ -926,9 +986,20 @@ def main_captions() -> None:
     if not use_bar:
         notify_error("No graphical session for the caption window - the transcript is still being saved")
     notice_id = None if use_bar else notify_status(f"Loading {MODE_NAME.lower()}…", None, 60000)
-    stop_hint = "Meta+Shift+H or click the tray icon to stop"
+    stop_hint = "Meta+Shift+H or click the tray icon to stop; right-click it to pause"
 
-    session = {"indicator": indicator}
+    session = {"indicator": indicator, "paused": paused}
+
+    def read_window():
+        for line in indicator.stdout:
+            try:
+                if json.loads(line).get("pause") == "toggle":
+                    pause_requests.put("toggle")
+            except ValueError:
+                continue
+
+    if indicator is not None:
+        threading.Thread(target=read_window, daemon=True).start()
     signal.signal(signal.SIGTERM, lambda signum, frame: stop_event.set())
     threading.Thread(target=run_captions, args=(work_done, stop_event, listening_started, session), daemon=True).start()
 
@@ -947,8 +1018,30 @@ def main_captions() -> None:
             else:
                 log(f"caption window exited with code {indicator.returncode} (transcript still being saved)")
                 notify_error("The caption window closed unexpectedly - the transcript is still being saved")
+        while not pause_requests.empty():
+            pause_requests.get()
+            output = session.get("output")
+            if not shown_listening or stop_event.is_set() or output is None:
+                continue
+            if paused.is_set():
+                log("captions resumed (user)")
+                paused.clear()
+                output.resume()
+                tray.setIcon(QIcon.fromTheme("dictation-listening"))
+                tray.setToolTip(f"{MODE_NAME}: LISTENING - {stop_hint}")
+                pause_action.setText("Pause captions")
+                send_indicator(indicator, json.dumps({"state": "listening"}))
+            else:
+                log("captions paused (user)")
+                output.pause()
+                paused.set()
+                tray.setIcon(QIcon.fromTheme("dictation-idle"))
+                tray.setToolTip(f"{MODE_NAME}: PAUSED - right-click the tray icon to resume")
+                pause_action.setText("Resume captions")
+                send_indicator(indicator, json.dumps({"state": "paused"}))
         if not shown_listening and listening_started.is_set():
             shown_listening = True
+            pause_action.setEnabled(True)
             tray.setIcon(QIcon.fromTheme("dictation-listening"))
             tray.setToolTip(f"{MODE_NAME}: LISTENING - {stop_hint}")
             send_indicator(indicator, json.dumps({"state": "listening"}))

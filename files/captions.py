@@ -4,10 +4,12 @@ be moved and resized like any other; a KWin rule (setup-caption-window-rule.sh)
 keeps it above other windows, stops it ever taking keyboard focus (typing
 always reaches the app being worked in) and remembers its position and size.
 A-/A+ change the text size, which is remembered in ~/.config/voice-captions.json.
+Pause stops listening without closing the window; Resume carries on in the same transcript.
 Scrolling up reads back through earlier captions; new text only jumps the view
 back down when it was already at the bottom.
 
-Reads JSON lines on stdin ({"state": ...}, {"text": ...}, {"newline": true}).
+Reads JSON lines on stdin ({"state": ...}, {"text": ...}, {"newline": true}) and writes
+{"pause": "toggle"} on stdout when Pause/Resume is clicked; dictate.py answers with the new state.
 Exits when stdin closes, so it can't outlive the captions process. Exit code 0
 means the user closed the window, which dictate.py treats as "stop captions".
 Runs in the dictation venv (PySide6)."""
@@ -35,6 +37,7 @@ QPlainTextEdit { background: #000000; color: #ffffff; border: none; }
 QPushButton { background: #1c1c1e; color: #ffffff; border: 1px solid #3a3a3c; border-radius: 6px;
               padding: 2px 10px; font-size: 13px; }
 QPushButton:hover { background: #2c2c2e; }
+QPushButton:disabled { color: #636366; }
 QPushButton#stop { background: #3a0d0b; border-color: #ff453a; }
 QPushButton#stop:hover { background: #5c1410; }
 QScrollBar:vertical { background: #000000; width: 8px; }
@@ -71,14 +74,18 @@ class CaptionWindow(QWidget):
         larger = QPushButton("A+")
         smaller.setToolTip("Smaller text")
         larger.setToolTip("Larger text")
+        self.pause = QPushButton("⏸ Pause")
+        self.pause.setToolTip("Stop listening for now; Resume continues the same transcript")
+        self.pause.setEnabled(False)  # until listening has started
         stop = QPushButton("■ Stop")
         stop.setObjectName("stop")
         stop.setToolTip("Stop captions and save the transcript")
         # The window never takes keyboard focus, so the buttons mustn't try to either.
-        for b in (smaller, larger, stop):
+        for b in (smaller, larger, self.pause, stop):
             b.setFocusPolicy(Qt.NoFocus)
         smaller.clicked.connect(lambda: self.change_font(-FONT_STEP))
         larger.clicked.connect(lambda: self.change_font(FONT_STEP))
+        self.pause.clicked.connect(self.request_pause_toggle)
         # Exit code 0 is what closing the window gives; dictate.py treats it as "stop captions".
         stop.clicked.connect(self.close)
         top = QHBoxLayout()
@@ -87,6 +94,7 @@ class CaptionWindow(QWidget):
         top.addWidget(smaller)
         top.addWidget(larger)
         top.addSpacing(10)
+        top.addWidget(self.pause)
         top.addWidget(stop)
 
         self.text = QPlainTextEdit()
@@ -129,12 +137,28 @@ class CaptionWindow(QWidget):
         bar = self.text.verticalScrollBar()
         bar.setValue(bar.maximum())
 
+    def request_pause_toggle(self) -> None:
+        # dictate.py owns the paused state; the button changes when its answer arrives.
+        try:
+            print(json.dumps({"pause": "toggle"}), flush=True)
+        except OSError as exc:
+            print(f"captions: could not send pause: {exc!r}", file=sys.stderr)
+
+    def set_status(self, text: str, live: bool) -> None:
+        self.status.setText(text)
+        self.status.setProperty("live", "true" if live else "false")
+        self.status.style().unpolish(self.status)
+        self.status.style().polish(self.status)
+
     def apply(self, msg: dict) -> None:
         if msg.get("state") == "listening":
-            self.status.setText("● Live captions")
-            self.status.setProperty("live", "true")
-            self.status.style().unpolish(self.status)
-            self.status.style().polish(self.status)
+            self.set_status("● Live captions", True)
+            self.pause.setText("⏸ Pause")
+            self.pause.setEnabled(True)
+        elif msg.get("state") == "paused":
+            self.set_status("⏸ Paused — not listening", False)
+            self.pause.setText("▶ Resume")
+            self.pause.setEnabled(True)
         follow = self.at_bottom()
         cursor = self.text.textCursor()
         cursor.movePosition(QTextCursor.End)

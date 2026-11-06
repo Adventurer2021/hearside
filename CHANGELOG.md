@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0 (2026-11-06)
+
+- **Pause for live captions:** a **⏸ Pause / ▶ Resume** button in the caption window, also in the tray icon's right-click menu (a left click still stops). While paused, nothing is heard, captioned or recorded, and the window stays open. Resume continues the same transcript, which gets a line such as `[paused 10:42:05 – 10:55:31]` (or `– stopped]` if captions were stopped while paused). The speaker-labelled transcript skips the paused part: the recording holds silence there, so its times stay in step.
+
 ## 1.1.0 (2026-10-21)
 
 **Installed once for every user** of the computer, like Win+H on Windows, and a **Windows-style dictation bar**.
