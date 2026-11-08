@@ -43,7 +43,7 @@ Speakers are numbered in the order they first speak. Rename them with your edito
 
 ## Requirements (short version)
 
-- **Linux with KDE Plasma** 5.27 or newer, on Wayland or X11. **KDE Plasma is required**; the installer checks first and stops otherwise. `./install.sh --check` tests a computer without installing anything.
+- **Linux with KDE Plasma** 5.27 or newer, on Wayland or X11. **KDE Plasma is required**; the installer checks first and stops otherwise. `./install.sh --check` tests a computer and lists the system packages that would be added, without installing anything.
 - **Debian / Ubuntu** (apt) or **Fedora / RHEL / AlmaLinux / Rocky** (dnf), with **PipeWire** sound (the default on all current releases).
 - A microphone, `sudo` rights for installing, and internet **during installation only**.
 - About **6–7 GB** of disk in `/opt/hearside`, once for all users (speaker labels included). Any recent x86-64 CPU; slower ones (Intel N100, older i3/i5 class) use an 8-bit mode the installer offers.

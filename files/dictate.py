@@ -74,6 +74,11 @@ SPEAKERS_READY = (os.path.isfile(SPEAKERS_SCRIPT) and os.path.isdir(os.path.join
                   and bool(glob.glob(os.path.join(SPEAKER_MODEL_CACHE, "snapshots", "*", "config.yaml"))))
 SPEAKER_LABELS = CAPTION_MODE and SPEAKERS_READY and os.environ.get("CAPTION_SPEAKER_LABELS", "1") == "1"
 SAVE_AUDIO = SPEAKER_LABELS or os.environ.get("CAPTION_SAVE_AUDIO") == "1"
+# If the user doesn't want to keep audio and speaker labels aren't active,
+# there is no need to save the WAV at all (speakers.sh normally deletes it
+# after labelling, but it never runs without speaker labels).
+if os.environ.get("CAPTION_KEEP_AUDIO") == "0" and not SPEAKER_LABELS:
+    SAVE_AUDIO = False
 # Captions also hear the computer's own audio (Zoom, Webex...). Without headphones the mic hears the
 # speakers too, so the mic first goes through a private WebRTC echo canceller (captions-echo-cancel.conf)
 # that removes whatever the speakers play - about 35 dB in testing - so call audio isn't doubled.

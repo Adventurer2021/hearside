@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2 (2026-11-07)
+
+- **The installer asks before adding system packages.** It checks which of the packages HearSide needs are already installed, lists only the missing ones and asks "Install them now? [Y/n]". Answering no stops before anything is changed. `--yes` skips the question. ydotool is downloaded only if the verified copy isn't already in `/usr/local/bin`.
+- **`./install.sh --check`** now also lists the system packages the installer would add, still without installing anything or needing sudo.
+- Only the installer changed; an existing 1.2.1 install keeps working as it is.
+
 ## 1.2.1 (2026-11-07)
 
 - **HearSide branding:** the name is now written HearSide everywhere. The dictation bar and the caption window show a small italic small-caps HearSide wordmark; every notification is headed HearSide; window titles, tray tooltips and the menu entries say HearSide. The GitHub address and install folders stay lowercase `hearside`, so nothing moves.

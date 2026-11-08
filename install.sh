@@ -9,7 +9,9 @@
 #     --speakers       also set up speaker-labelled transcripts without asking
 #     --no-speakers    skip speaker-labelled transcripts without asking
 #     --speaker-model-from DIR   copy the speaker model from DIR instead of downloading it
-#     --check          only check this computer meets the requirements; install nothing
+#     --check          only check this computer meets the requirements and list the system
+#                      packages that would be installed; install nothing
+#     --yes            install missing system packages without asking
 # Safe to re-run: it repairs or upgrades an existing install, and sets up accounts added since.
 set -euo pipefail
 
@@ -17,6 +19,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 PREFIX=/opt/hearside
 
 app_args=()
+system_args=()
 users=()
 speakers=ask
 speaker_from=""
@@ -30,7 +33,8 @@ while [ $# -gt 0 ]; do
         --no-speakers) speakers=no ;;
         --speaker-model-from) speaker_from="${2:?--speaker-model-from needs a folder}"; speakers=yes; shift ;;
         --check) check_only=yes ;;
-        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+        --yes) system_args+=(--yes) ;;
+        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1 (see ./install.sh --help)" >&2; exit 1 ;;
     esac
     shift
@@ -56,6 +60,7 @@ if [ "${plasma_major:-0}" -lt 5 ] || { [ "$plasma_major" -eq 5 ] && [ "${plasma_
 fi
 if [ "$check_only" = yes ]; then
     echo "OK: KDE Plasma $plasma_version. This computer can run HearSide."
+    bash "$HERE/install-system.sh" --list-missing
     exit 0
 fi
 [ "$(id -u)" -eq 0 ] || stop "run it with sudo:  sudo $0" "It installs once, for every user of this computer."
@@ -77,7 +82,7 @@ if [ ${#app_args[@]} -eq 0 ] && ! grep -qs '^DICTATION_' "$PREFIX/hearside.env" 
 fi
 
 bold "Step 1 of 3: system packages and user accounts"
-bash "$HERE/install-system.sh" "${users[@]}"
+bash "$HERE/install-system.sh" "${system_args[@]}" "${users[@]}"
 
 bold "Step 2 of 3: dictation and live captions (shared, in $PREFIX)"
 bash "$HERE/install-app.sh" "${app_args[@]}"
@@ -117,6 +122,24 @@ if [ "$speakers" = yes ]; then
     fi
 else
     echo "Skipped. To add it later: sudo bash $HERE/install-speakers.sh (see INSTALL.md)"
+fi
+
+# The speaker setup ran `hf auth login` as root, which leaves /opt/hearside/hf mode 700
+# (root-only) to protect the HF token. The runtime runs as each unprivileged user and
+# loads the public dictation model from this shared cache offline (HF_HUB_OFFLINE=1),
+# so every user must be able to traverse and read it. `install-speakers.sh` re-opens it
+# on success, but if the gated speaker download failed (403) it exits before that point.
+# Re-open (if it exists) the shared HF cache so dictation/captions can read model
+# artifacts, without exposing credential material. Only directories get traverse
+# (x) and only files under hub/ get read (r).
+# The runtime runs as unprivileged users and the dictation model is public
+# (no HF token needed). Remove any token file from the shared cache: leaving it
+# here either exposes it to all users or, if root-only, makes it unreadable and
+# crashes the app. Tokens for gated models are used only by the installer (as root).
+if [ -d "$PREFIX/hf" ]; then
+    find "$PREFIX/hf" -type d -exec chmod a+x {} +
+    [ -d "$PREFIX/hf/hub" ] && find -L "$PREFIX/hf/hub" -type f -exec chmod a+r {} + 2>/dev/null || true
+    rm -f "$PREFIX/hf/token"
 fi
 
 bold "Older per-user installs"
