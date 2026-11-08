@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hearside - installer for KDE Plasma (5.27 or newer, Wayland or X11). Installs once for every
+# HearSide - installer for KDE Plasma (5.27 or newer, Wayland or X11). Installs once for every
 # user of this computer, like the built-in Win+H on Windows:
 #     sudo ./install.sh
 # Options:
@@ -48,19 +48,19 @@ plasma_version="$(grep -h '^X-KDE-PluginInfo-Version=' /usr/share/wayland-sessio
 if [ -z "$plasma_version" ] && command -v plasmashell >/dev/null; then
     plasma_version="$(plasmashell --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1 || true)"
 fi
-[ -n "$plasma_version" ] || stop "Hearside needs the KDE Plasma desktop, and it isn't installed here." \
+[ -n "$plasma_version" ] || stop "HearSide needs the KDE Plasma desktop, and it isn't installed here." \
     "Requirements: KDE Plasma 5.27 or newer (see INSTALL.md)."
 IFS=. read -r plasma_major plasma_minor _ <<<"$plasma_version"
 if [ "${plasma_major:-0}" -lt 5 ] || { [ "$plasma_major" -eq 5 ] && [ "${plasma_minor:-0}" -lt 27 ]; }; then
-    stop "KDE Plasma $plasma_version is too old; Hearside needs 5.27 or newer."
+    stop "KDE Plasma $plasma_version is too old; HearSide needs 5.27 or newer."
 fi
 if [ "$check_only" = yes ]; then
-    echo "OK: KDE Plasma $plasma_version. This computer can run Hearside."
+    echo "OK: KDE Plasma $plasma_version. This computer can run HearSide."
     exit 0
 fi
 [ "$(id -u)" -eq 0 ] || stop "run it with sudo:  sudo $0" "It installs once, for every user of this computer."
 
-bold "Hearside installer"
+bold "HearSide installer"
 echo "KDE Plasma $plasma_version detected."
 echo "Offline voice dictation (Win+H), live captions (Meta+Shift+H) and, optionally,"
 echo "speaker-labelled transcripts, for every user of this computer. Everything runs here;"
@@ -137,6 +137,6 @@ echo "Restart the computer (or have each user log out and back in) so the new se
 echo "input group take effect. Then, for everyone set up above:"
 echo "  Win+H        opens the dictation bar and listens; Win+H or its microphone starts/stops"
 echo "               listening, any key stops it, its x closes the bar; drag it anywhere"
-echo "  Meta+Shift+H start/stop live captions (or 'Live Captions (Hearside)' in the app menu)"
+echo "  Meta+Shift+H start/stop live captions (or 'Live Captions (HearSide)' in the app menu)"
 echo "  Transcripts  ~/Transcripts/ (each user's own)"
 echo "  Uninstall    sudo $HERE/uninstall.sh"

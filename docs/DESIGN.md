@@ -1,4 +1,4 @@
-# How Hearside works
+# How HearSide works
 
 ## Pieces
 
@@ -16,7 +16,7 @@ Everything that is the same for every user is installed once, read-only, under `
 | `hearside-ydotoold.service` | systemd user unit, global | The daemon `ydotool` types through (`/dev/uinput`, which the `input` group may use via `99-uinput.rules`), one per logged-in user on `$XDG_RUNTIME_DIR/.ydotool_socket`. |
 | Models | `/opt/hearside/hf` (`HF_HOME`); the 8-bit model as `/opt/hearside/model-int8.pt` | Downloaded or copied by the installer as root; loaded with `HF_HUB_OFFLINE=1`, so sessions make no network calls. |
 
-Both user units carry `ConditionGroup=input` (only accounts set up for Hearside run them) and `ConditionPathExists=!%h/.config/systemd/user/<old unit>`, so a user who still has a 1.0.x per-user install keeps using it and the two never run at once.
+Both user units carry `ConditionGroup=input` (only accounts set up for HearSide run them) and `ConditionPathExists=!%h/.config/systemd/user/<old unit>`, so a user who still has a 1.0.x per-user install keeps using it and the two never run at once.
 
 ## Audio path for captions
 

@@ -1,11 +1,11 @@
 #!/bin/bash
-# KWin window rules for Hearside's two windows, for the user running it:
+# KWin window rules for HearSide's two windows, for the user running it:
 #   - live captions (hearside-captions): kept above, never focused, remembers position and size
 #   - dictation bar (hearside-bar): kept above, never focused, not in the task bar or switcher,
 #     remembers where it was dragged
 # "Never focused" is what lets you click their buttons while the cursor stays in the app you
 # are typing or dictating into. Other rules in kwinrulesrc are left alone.
-# Run by the Hearside hotkey service at every login; it only writes when a rule is missing or
+# Run by the HearSide hotkey service at every login; it only writes when a rule is missing or
 # older than this script (RULES_VERSION), so it is cheap and makes no backups otherwise.
 # Normal user, no sudo. Safe to re-run.
 set -euo pipefail
@@ -45,8 +45,8 @@ rule() {  # rule <id> <description> <app id> <remember size: yes/no> <skip task 
     if [ "$5" = yes ]; then w skiptaskbar true; w skiptaskbarrule 2; fi
     w hearsideRulesVersion "$RULES_VERSION"
 }
-rule "$CAPTIONS_RULE" "Live Captions (Hearside)" hearside-captions yes no
-rule "$BAR_RULE" "Dictation bar (Hearside)" hearside-bar no yes
+rule "$CAPTIONS_RULE" "Live Captions (HearSide)" hearside-captions yes no
+rule "$BAR_RULE" "Dictation bar (HearSide)" hearside-bar no yes
 
 rules="$("$R" --file "$RC" --group General --key rules)"
 for id in "$CAPTIONS_RULE" "$BAR_RULE"; do
@@ -63,4 +63,4 @@ if command -v qdbus6 >/dev/null; then qdbus6 org.kde.KWin /KWin reconfigure >/de
 elif command -v qdbus >/dev/null; then qdbus org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
 else dbus-send --session --type=method_call --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure 2>/dev/null || true
 fi
-echo "KWin rules for the Hearside windows are in place ($count rule(s) total in $RC)"
+echo "KWin rules for the HearSide windows are in place ($count rule(s) total in $RC)"

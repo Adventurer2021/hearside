@@ -1,6 +1,6 @@
 #!/bin/bash
-# Hearside, part 1 (root): system packages, ydotool, /dev/uinput access, and the
-# "input" group for every account that will use Hearside. Supports apt (Debian/Ubuntu)
+# HearSide, part 1 (root): system packages, ydotool, /dev/uinput access, and the
+# "input" group for every account that will use HearSide. Supports apt (Debian/Ubuntu)
 # and dnf (AlmaLinux/RHEL/Fedora). Normally run by install.sh; on its own:
 #     sudo bash install-system.sh [user ...]        (default: every regular account)
 set -euo pipefail
@@ -54,7 +54,7 @@ install -m 644 "$HERE/files/99-uinput.rules" /etc/udev/rules.d/99-uinput.rules
 udevadm control --reload-rules
 udevadm trigger --name-match=uinput || true
 
-echo "== Accounts that can use Hearside (added to the 'input' group) =="
+echo "== Accounts that can use HearSide (added to the 'input' group) =="
 # The input group lets an account type through /dev/uinput and see key presses (dictation stops
 # when you type). Only accounts listed here get it.
 for u in "${users[@]}"; do

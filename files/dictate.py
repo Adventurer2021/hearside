@@ -47,6 +47,7 @@ torch.set_num_threads(CPU_THREADS)
 
 CAPTION_MODE = "--caption" in sys.argv
 MODE_NAME = "Captions" if CAPTION_MODE else "Dictation"
+APP_NAME = "HearSide"  # shown in the header of every notification
 
 # Program files, Python environments and models are shared by all users, read-only, in APP_DIR
 # (normally /opt/hearside). Logs and the PID file are per user.
@@ -114,7 +115,7 @@ def log(event: str) -> None:
 
 def notify_error(message: str) -> None:
     log(f"ERROR POPUP: {message}")
-    subprocess.run(["notify-send", "-u", "critical", "-a", MODE_NAME, message], check=False)
+    subprocess.run(["notify-send", "-u", "critical", "-a", APP_NAME, message], check=False)
 
 
 def type_text(text: str) -> None:
@@ -165,7 +166,7 @@ class ImmediateTextStreamer:
 def notify_status(message: str, replace_id: "str | None", timeout_ms: int) -> "str | None":
     # Status pop-up for sessions where the floating bar can't run (X11). Replacing one
     # notification keeps a single pop-up; "transient" keeps it out of notification history.
-    cmd = ["notify-send", "-a", "Dictation", "-i", "audio-input-microphone", "-p",
+    cmd = ["notify-send", "-a", APP_NAME, "-i", "audio-input-microphone", "-p",
            "-t", str(timeout_ms), "-h", "int:transient:1"]
     if replace_id:
         cmd += ["-r", replace_id]
@@ -870,7 +871,7 @@ def main_dictation() -> None:
 
     tray = QSystemTrayIcon()
     tray.setIcon(QIcon.fromTheme("dictation-idle"))
-    tray.setToolTip("Dictation: loading...")
+    tray.setToolTip("HearSide Dictation: loading...")
     menu = QMenu()
     toggle_action = QAction("Start/stop listening (Win+H)")
     toggle_action.triggered.connect(lambda: requests.put("toggle"))
@@ -918,8 +919,8 @@ def main_dictation() -> None:
         return "starting" if ctl["want"].is_set() else "idle"
 
     hints = {"loading": "loading...", "starting": "starting...",
-             "listening": "LISTENING - Win+H, the tray icon or any key to stop",
-             "idle": "paused - Win+H or click the tray icon to listen"}
+             "listening": "listening - Win+H or any key to stop",
+             "idle": "paused - Win+H or the tray icon to listen"}
     shown = [None]
     notice_id = [None]
     timer = QTimer()
@@ -939,7 +940,7 @@ def main_dictation() -> None:
         if now != shown[0]:
             shown[0] = now
             tray.setIcon(QIcon.fromTheme("dictation-listening" if now == "listening" else "dictation-idle"))
-            tray.setToolTip(f"Dictation: {hints[now]}")
+            tray.setToolTip(f"HearSide Dictation: {hints[now]}")
             send_indicator(bar, now)
             if bar is None and now in ("listening", "idle"):
                 notice_id[0] = notify_status(f"Dictation {hints[now]}", notice_id[0], 0 if now == "listening" else 3000)
@@ -964,7 +965,7 @@ def main_captions() -> None:
     listening_started = threading.Event()
     tray = QSystemTrayIcon()
     tray.setIcon(QIcon.fromTheme("dictation-idle"))
-    tray.setToolTip(f"{MODE_NAME}: loading...")
+    tray.setToolTip(f"HearSide {MODE_NAME}: loading...")
     paused = threading.Event()
     pause_requests: "queue.Queue[str]" = queue.Queue()
     # A click on the tray icon is another mouse way to stop captions; its menu also pauses.
@@ -1028,7 +1029,7 @@ def main_captions() -> None:
                 paused.clear()
                 output.resume()
                 tray.setIcon(QIcon.fromTheme("dictation-listening"))
-                tray.setToolTip(f"{MODE_NAME}: LISTENING - {stop_hint}")
+                tray.setToolTip(f"HearSide {MODE_NAME}: LISTENING - {stop_hint}")
                 pause_action.setText("Pause captions")
                 send_indicator(indicator, json.dumps({"state": "listening"}))
             else:
@@ -1036,14 +1037,14 @@ def main_captions() -> None:
                 output.pause()
                 paused.set()
                 tray.setIcon(QIcon.fromTheme("dictation-idle"))
-                tray.setToolTip(f"{MODE_NAME}: PAUSED - right-click the tray icon to resume")
+                tray.setToolTip(f"HearSide {MODE_NAME}: PAUSED - right-click the tray icon to resume")
                 pause_action.setText("Resume captions")
                 send_indicator(indicator, json.dumps({"state": "paused"}))
         if not shown_listening and listening_started.is_set():
             shown_listening = True
             pause_action.setEnabled(True)
             tray.setIcon(QIcon.fromTheme("dictation-listening"))
-            tray.setToolTip(f"{MODE_NAME}: LISTENING - {stop_hint}")
+            tray.setToolTip(f"HearSide {MODE_NAME}: LISTENING - {stop_hint}")
             send_indicator(indicator, json.dumps({"state": "listening"}))
             if not use_bar:
                 notice_id = notify_status(f"Listening — {stop_hint}", notice_id, 0)

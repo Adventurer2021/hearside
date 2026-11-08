@@ -1,6 +1,6 @@
-# Hearside
+# HearSide
 
-**Hearside** is a set of offline voice tools for Linux, built for the KDE Plasma desktop. Everything runs on your own computer: no cloud service, no subscription, and your audio and words never leave the machine. It is installed once and works for every user of the computer, like Win+H on Windows.
+**HearSide** is a set of offline voice tools for Linux, built for the KDE Plasma desktop. Everything runs on your own computer: no cloud service, no subscription, and your audio and words never leave the machine. It is installed once and works for every user of the computer, like Win+H on Windows.
 
 - **Dictation (Win+H)**: a small dictation bar, much like Windows 11's voice typing. Speak, and the words are typed into whatever text field has focus. Its microphone button (or Win+H) starts and stops listening; the bar stays on screen until you close it, and you can drag it anywhere.
 - **Live captions (Meta+Shift+H)**: real-time captions in a small window you can move and resize, for phone calls on speaker, Zoom/Webex meetings, or anything your computer plays. Built for people who are hard of hearing. Every session is saved as a transcript.
@@ -73,8 +73,8 @@ Speakers are numbered in the order they first speak. Rename them with your edito
 sudo ./uninstall.sh
 ```
 
-This removes Hearside for every user. Everyone's `~/Transcripts` are kept.
+This removes HearSide for every user. Everyone's `~/Transcripts` are kept.
 
 ## Credits and license
 
-Hearside is released under the [MIT License](LICENSE). It builds on NVIDIA's Nemotron speech model, pyannote's speaker-diarization model, ydotool, PipeWire's WebRTC echo canceller, PyTorch, Hugging Face Transformers and Qt. Their licenses and the required attributions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). How it works inside: [docs/DESIGN.md](docs/DESIGN.md).
+HearSide is released under the [MIT License](LICENSE). It builds on NVIDIA's Nemotron speech model, pyannote's speaker-diarization model, ydotool, PipeWire's WebRTC echo canceller, PyTorch, Hugging Face Transformers and Qt. Their licenses and the required attributions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). How it works inside: [docs/DESIGN.md](docs/DESIGN.md).

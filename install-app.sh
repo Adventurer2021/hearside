@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hearside, part 2 (root): the program itself, installed once for every user of this computer.
+# HearSide, part 2 (root): the program itself, installed once for every user of this computer.
 #   /opt/hearside            program files (read-only for users)
 #   /opt/hearside/venv       Python environment with CPU-only PyTorch (~4 GB)
 #   /opt/hearside/hf         the speech model (~2.5 GB), shared by everyone
@@ -7,7 +7,7 @@
 #   /usr/lib/systemd/user    hotkey + typing services, started at every user's login
 #   /usr/share/applications, /usr/share/icons   menu entry and icons
 # Per user (made automatically at login): ~/.local/share/hearside (logs), ~/Transcripts,
-# KWin rules for the two Hearside windows, the Win+H / Meta+Shift+H shortcuts.
+# KWin rules for the two HearSide windows, the Win+H / Meta+Shift+H shortcuts.
 # Normally run by install.sh. Options: --int8, --threads N (written to hearside.env).
 set -euo pipefail
 
@@ -70,7 +70,7 @@ HF_HOME="$PREFIX/hf" "$PREFIX/venv/bin/python3" -c \
 echo "== Machine settings ($PREFIX/hearside.env) =="
 if [ -n "$int8$threads" ] || [ ! -f "$PREFIX/hearside.env" ]; then
     {
-        echo "# Hearside machine settings, for every user (written by the installer)."
+        echo "# HearSide machine settings, for every user (written by the installer)."
         echo "# A user can override them in ~/.config/voice-dictation.env."
         if [ -n "$int8" ]; then echo "DICTATION_INT8=1"; fi
         if [ -n "$threads" ]; then echo "DICTATION_THREADS=$threads"; fi
@@ -101,7 +101,7 @@ gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
 cat > /usr/share/applications/hearside-captions.desktop <<EOF
 [Desktop Entry]
 Type=Application
-Name=Live Captions (Hearside)
+Name=Live Captions (HearSide)
 Comment=Live captions from the microphone, saved to ~/Transcripts. Same as Meta+Shift+H.
 Exec=$PREFIX/dictate.sh --caption
 Icon=dictation-listening
@@ -111,7 +111,7 @@ EOF
 cat > /usr/share/applications/hearside-dictation.desktop <<EOF
 [Desktop Entry]
 Type=Application
-Name=Dictation (Hearside)
+Name=Dictation (HearSide)
 Comment=Opens the dictation bar: type by voice into any app. Same as Win+H.
 Exec=$PREFIX/dictate.sh
 Icon=dictation-idle

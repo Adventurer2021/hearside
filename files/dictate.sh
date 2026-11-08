@@ -1,7 +1,7 @@
 #!/bin/bash
 # Starts dictate.py (dictation, or live captions with --caption) for the user running it.
 # The program, its Python environment and the speech model are shared, read-only, in the
-# Hearside folder this script lives in (normally /opt/hearside); logs and settings are per user.
+# HearSide folder this script lives in (normally /opt/hearside); logs and settings are per user.
 APP="$(dirname "$(readlink -f "$0")")"
 STATE="$HOME/.local/share/hearside"
 mkdir -p "$STATE"

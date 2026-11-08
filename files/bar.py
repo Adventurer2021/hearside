@@ -11,12 +11,13 @@ cursor in the text field being dictated into) and remembers where it was dragged
 Talks to dictate.py over stdin/stdout, one word per line:
   in:  loading | starting | listening | idle      (what dictation is doing)
   out: toggle | close                              (what the user clicked)
-Exits when stdin closes, so it can't outlive dictation. Runs in the Hearside venv (PySide6)."""
+Exits when stdin closes, so it can't outlive dictation. Runs in the HearSide venv (PySide6)."""
 import os
 import sys
 
 from PySide6.QtCore import QSocketNotifier, Qt, QTimer
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 APP_ID = "hearside-bar"  # Wayland app_id / X11 class; the KWin rule matches on it
 
@@ -26,6 +27,7 @@ QLabel { color: #ffffff; background: transparent; }
 QLabel#title { font-weight: bold; }
 QLabel#hint { color: #c7c7cc; font-size: 11px; }
 QLabel#grip { color: #8e8e93; font-size: 14px; }
+QLabel#brand { color: #8e8e93; }
 QPushButton { border: none; color: #ffffff; background: transparent; }
 QPushButton#mic { background: #3a3a3c; border-radius: 16px; font-size: 16px; min-width: 32px; min-height: 32px; }
 QPushButton#mic:hover { background: #4a4a4c; }
@@ -37,11 +39,25 @@ QPushButton#close:hover { color: #ffffff; }
 """
 
 STATES = {
-    "loading": ("Loading dictation…", "the first start takes a few seconds"),
+    "loading": ("Loading…", "first start takes a few seconds"),
     "starting": ("Starting…", ""),
-    "listening": ("Listening", "click the mic, Win+H or any key to stop"),
-    "idle": ("Dictation paused", "click the mic or Win+H to talk"),
+    "listening": ("Listening", "Win+H or any key to stop"),
+    "idle": ("Paused", "Win+H or the mic to talk"),
 }
+
+
+def wordmark(point_size: float = 8.5) -> QLabel:
+    # The HearSide name: italic small caps, so H and S stand full height and the rest
+    # sit as small capitals, in a quiet grey.
+    label = QLabel("HearSide")
+    label.setObjectName("brand")
+    font = QFont(label.font())
+    font.setItalic(True)
+    font.setCapitalization(QFont.SmallCaps)
+    font.setLetterSpacing(QFont.AbsoluteSpacing, 0.6)
+    font.setPointSizeF(point_size)
+    label.setFont(font)
+    return label
 
 
 def send(word: str) -> None:
@@ -55,7 +71,7 @@ class Bar(QWidget):
     def __init__(self):
         flags = Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus | Qt.Tool
         super().__init__(None, flags)
-        self.setWindowTitle("Dictation")
+        self.setWindowTitle("HearSide – Dictation")
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFocusPolicy(Qt.NoFocus)
@@ -76,10 +92,12 @@ class Bar(QWidget):
         self.title.setObjectName("title")
         self.hint = QLabel()
         self.hint.setObjectName("hint")
+        brand = wordmark()
         texts = QWidget()
-        col = QHBoxLayout(texts)
+        col = QVBoxLayout(texts)
         col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(8)
+        col.setSpacing(0)
+        col.addWidget(brand)
         col.addWidget(self.title)
         col.addWidget(self.hint)
         close = QPushButton("✕")
@@ -87,7 +105,7 @@ class Bar(QWidget):
         close.setToolTip("Close the dictation bar")
 
         # The bar must never take keyboard focus away from the app being dictated into.
-        for w in (grip, self.mic, self.title, self.hint, texts, close, pill):
+        for w in (grip, self.mic, brand, self.title, self.hint, texts, close, pill):
             w.setFocusPolicy(Qt.NoFocus)
         self.mic.clicked.connect(lambda: send("toggle"))
         close.clicked.connect(self.close)
@@ -143,7 +161,7 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_ID)  # X11 window class, for the KWin rule
     app.setDesktopFileName(APP_ID)  # Wayland app_id
-    app.setApplicationDisplayName("Dictation")
+    app.setApplicationDisplayName("HearSide – Dictation")
     app.setStyleSheet(STYLE)
     bar = Bar()
 

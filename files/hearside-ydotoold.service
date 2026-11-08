@@ -1,5 +1,5 @@
 [Unit]
-Description=ydotool daemon for Hearside (types dictated text)
+Description=ydotool daemon for HearSide (types dictated text)
 # At boot this can start a moment before /dev/uinput has its "input" group permission and fail with
 # "failed to open uinput device: Permission denied". Never give up; retry every 2 seconds.
 StartLimitIntervalSec=0

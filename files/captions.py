@@ -33,6 +33,7 @@ STYLE = """
 QWidget#root { background: #000000; }
 QLabel#status { color: #8e8e93; font-size: 13px; }
 QLabel#status[live="true"] { color: #ff453a; }
+QLabel#brand { color: #8e8e93; }
 QPlainTextEdit { background: #000000; color: #ffffff; border: none; }
 QPushButton { background: #1c1c1e; color: #ffffff; border: 1px solid #3a3a3c; border-radius: 6px;
               padding: 2px 10px; font-size: 13px; }
@@ -44,6 +45,20 @@ QScrollBar:vertical { background: #000000; width: 8px; }
 QScrollBar::handle:vertical { background: #3a3a3c; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 """
+
+
+def wordmark(point_size: float = 10) -> QLabel:
+    # The HearSide name: italic small caps, so H and S stand full height and the rest
+    # sit as small capitals, in a quiet grey (same as the dictation bar).
+    label = QLabel("HearSide")
+    label.setObjectName("brand")
+    font = QFont(label.font())
+    font.setItalic(True)
+    font.setCapitalization(QFont.SmallCaps)
+    font.setLetterSpacing(QFont.AbsoluteSpacing, 0.6)
+    font.setPointSizeF(point_size)
+    label.setFont(font)
+    return label
 
 
 def load_font_px() -> int:
@@ -65,7 +80,7 @@ class CaptionWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setObjectName("root")
-        self.setWindowTitle("Live Captions")
+        self.setWindowTitle("HearSide – Live Captions")
         self.resize(*DEFAULT_SIZE)
 
         self.status = QLabel("● Captions — loading…")
@@ -91,6 +106,8 @@ class CaptionWindow(QWidget):
         top = QHBoxLayout()
         top.addWidget(self.status)
         top.addStretch(1)
+        top.addWidget(wordmark())
+        top.addSpacing(14)
         top.addWidget(smaller)
         top.addWidget(larger)
         top.addSpacing(10)
@@ -173,7 +190,7 @@ class CaptionWindow(QWidget):
 def main() -> None:
     app = QApplication(sys.argv)
     app.setDesktopFileName(APP_ID)
-    app.setApplicationDisplayName("Live Captions")
+    app.setApplicationDisplayName("HearSide – Live Captions")
     app.setStyleSheet(STYLE)
     win = CaptionWindow()
 

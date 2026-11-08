@@ -1,6 +1,6 @@
 # Third-party components
 
-Hearside' own code (the scripts and Python files in this package) is MIT-licensed; see [LICENSE](LICENSE).
+HearSide' own code (the scripts and Python files in this package) is MIT-licensed; see [LICENSE](LICENSE).
 
 **None of the components below is included in this package.** The installer downloads each one from its official source onto your computer, under that component's own license, which you accept by installing it. They're listed here for credit, and because some licenses ask for attribution.
 

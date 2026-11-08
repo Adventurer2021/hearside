@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hearside - speaker-labelled transcripts (optional add-on; root, for every user).
+# HearSide - speaker-labelled transcripts (optional add-on; root, for every user).
 # After each captions session it writes ~/Transcripts/<time>-speakers.txt ("Speaker 1: ...
 # / Speaker 2: ...") using pyannote's speaker-diarization-community-1, fully offline, in a
 # sandbox with no network, with pyannote's telemetry off. Run after install-app.sh
@@ -32,7 +32,7 @@ while [ $# -gt 0 ]; do
 done
 
 [ "$(id -u)" -eq 0 ] || fail "run with: sudo bash $0"
-[ -x "$PREFIX/venv/bin/python3" ] && [ -f "$PREFIX/dictate.py" ] || fail "install Hearside first (install.sh)"
+[ -x "$PREFIX/venv/bin/python3" ] && [ -f "$PREFIX/dictate.py" ] || fail "install HearSide first (install.sh)"
 umask 022
 # Same sandbox choice as speakers.sh: unshare, or bubblewrap where Ubuntu's AppArmor blocks unshare.
 # (Checked as a normal user too, since that is who runs it after each call.)

@@ -1,9 +1,9 @@
 #!/bin/bash
-# Hearside - uninstaller for the shared install (1.1.0 or newer). Run:   sudo ./uninstall.sh
+# HearSide - uninstaller for the shared install (1.1.0 or newer). Run:   sudo ./uninstall.sh
 # Removes /opt/hearside (programs, Python environments, models), the services, menu entries,
 # icons, ydotool and the /dev/uinput rule. Every user's transcripts in ~/Transcripts are KEPT.
 # Small per-user leftovers (logs in ~/.local/share/hearside, the two KWin window rules and the
-# shortcut entries in System Settings) are listed at the end; they do nothing without Hearside.
+# shortcut entries in System Settings) are listed at the end; they do nothing without HearSide.
 # (An older per-user install is removed with remove-per-user-install.sh instead.)
 set -uo pipefail
 
@@ -11,7 +11,7 @@ PREFIX=/opt/hearside
 ask() { local reply; read -r -p "$1 [y/N] " reply; [[ "$reply" =~ ^[Yy] ]]; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run with: sudo $0" >&2; exit 1; }
-echo "This removes Hearside for every user of this computer. Transcripts in ~/Transcripts are kept."
+echo "This removes HearSide for every user of this computer. Transcripts in ~/Transcripts are kept."
 ask "Continue?" || exit 0
 
 echo "== Stopping it for everyone logged in =="
@@ -42,6 +42,6 @@ if [ -n "$members" ] && ask "Remove these accounts from the 'input' group ($memb
 fi
 
 echo
-echo "Hearside removed. Per-user leftovers that do nothing on their own (each user may delete them):"
-echo "  ~/.local/share/hearside (logs), the 'Hearside' rules in System Settings > Window Rules,"
+echo "HearSide removed. Per-user leftovers that do nothing on their own (each user may delete them):"
+echo "  ~/.local/share/hearside (logs), the 'HearSide' rules in System Settings > Window Rules,"
 echo "  and 'Voice Dictation' in System Settings > Shortcuts. Transcripts stay in ~/Transcripts."

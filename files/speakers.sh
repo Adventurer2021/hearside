@@ -9,7 +9,7 @@
 # Usage: speakers.sh call.wav live-transcript.txt
 set -uo pipefail
 
-# Programs and models are shared, read-only, in the Hearside folder (normally /opt/hearside);
+# Programs and models are shared, read-only, in the HearSide folder (normally /opt/hearside);
 # the log is per user.
 DIR="$(dirname "$(readlink -f "$0")")"
 STATE="$HOME/.local/share/hearside"
@@ -26,7 +26,7 @@ OUT="${LIVE%.txt}-speakers.txt"
 SEG="${XDG_RUNTIME_DIR:-/tmp}/speakers-$$.json"
 
 log() { echo "$(date '+%F %T') $*" >> "$LOG"; }
-notify() { notify-send -a Captions -i dictation-listening "$@" 2>/dev/null || true; }
+notify() { notify-send -a HearSide -i dictation-listening "$@" 2>/dev/null || true; }
 fail() {
     log "FAILED: $*"
     notify -u critical "Speaker labels failed" "The live transcript is fine. Details: $LOG"
@@ -61,4 +61,4 @@ if [ "${CAPTION_KEEP_AUDIO:-1}" = "0" ]; then
     log "audio deleted (CAPTION_KEEP_AUDIO=0)"
 fi
 log "done: $(basename "$OUT")"
-notify "Speaker-labelled transcript ready" "$OUT"
+notify "Speaker-labeled transcript ready" "$OUT"
