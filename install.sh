@@ -124,6 +124,24 @@ else
     echo "Skipped. To add it later: sudo bash $HERE/install-speakers.sh (see INSTALL.md)"
 fi
 
+# The speaker setup ran `hf auth login` as root, which leaves /opt/hearside/hf mode 700
+# (root-only) to protect the HF token. The runtime runs as each unprivileged user and
+# loads the public dictation model from this shared cache offline (HF_HUB_OFFLINE=1),
+# so every user must be able to traverse and read it. `install-speakers.sh` re-opens it
+# on success, but if the gated speaker download failed (403) it exits before that point.
+# Re-open (if it exists) the shared HF cache so dictation/captions can read model
+# artifacts, without exposing credential material. Only directories get traverse
+# (x) and only files under hub/ get read (r).
+# The runtime runs as unprivileged users and the dictation model is public
+# (no HF token needed). Remove any token file from the shared cache: leaving it
+# here either exposes it to all users or, if root-only, makes it unreadable and
+# crashes the app. Tokens for gated models are used only by the installer (as root).
+if [ -d "$PREFIX/hf" ]; then
+    find "$PREFIX/hf" -type d -exec chmod a+x {} +
+    [ -d "$PREFIX/hf/hub" ] && find -L "$PREFIX/hf/hub" -type f -exec chmod a+r {} + 2>/dev/null || true
+    rm -f "$PREFIX/hf/token"
+fi
+
 bold "Older per-user installs"
 old=()
 while IFS=: read -r name home; do

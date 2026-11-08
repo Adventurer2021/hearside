@@ -84,6 +84,21 @@ fi
 chown -R root:root "$PREFIX"
 chmod -R go-w,a+rX "$PREFIX"
 
+# Re-open the shared HF cache (if it exists) so every unprivileged user can traverse
+# directories and read model artifacts, without exposing credential material.
+# `hf auth login` (run as root) creates /opt/hearside/hf mode 700 to protect the
+# token; the runtime loads the public dictation model from this cache offline, so
+# it must be reachable by all users. Directories get traverse (x), files under
+# hub/ get read (r).
+# Remove any token file from the shared cache: the runtime runs as unprivileged
+# users and the dictation model is public (no token needed). Leaving a root-only
+# token here makes it unreadable and crashes the app.
+if [ -d "$PREFIX/hf" ]; then
+    find "$PREFIX/hf" -type d -exec chmod a+x {} +
+    [ -d "$PREFIX/hf/hub" ] && find -L "$PREFIX/hf/hub" -type f -exec chmod a+r {} + 2>/dev/null || true
+    rm -f "$PREFIX/hf/token"
+fi
+
 echo "== Offline check (inside the network-less sandbox) =="
 cd /tmp
 PYANNOTE_METRICS_ENABLED=0 HF_HUB_OFFLINE=1 "${SANDBOX[@]}" "$VENV/bin/python3" -c \

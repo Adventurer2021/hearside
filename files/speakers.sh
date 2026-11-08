@@ -46,13 +46,19 @@ else
     fail "no network-less sandbox available (tried unshare --user --net and bwrap --unshare-net)"
 fi
 
-exec 9>"${XDG_RUNTIME_DIR:-/tmp}/speakers.lock"
-flock 9
-
+# Log the start before taking the lock, so we can see sessions that are blocked waiting.
 log "start: $(basename "$WAV")"
-nice -n 10 "${SANDBOX[@]}" "$DIR/speakers-venv/bin/python3" "$DIR/diarize.py" "$WAV" "$SEG" >> "$LOG" 2>&1 \
+
+# One job at a time. Wait up to 5 minutes for the lock; if another instance is stuck,
+# give up rather than blocking forever.
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/speakers.lock"
+if ! flock -w 300 9; then
+    log "FAILED: could not acquire speaker labelling lock within 5 minutes"
+    exit 1
+fi
+timeout -k 30 600 nice -n 10 "${SANDBOX[@]}" "$DIR/speakers-venv/bin/python3" "$DIR/diarize.py" "$WAV" "$SEG" >> "$LOG" 2>&1 \
     || fail "diarize.py exited $?"
-nice -n 10 "${SANDBOX[@]}" "$DIR/venv/bin/python3" "$DIR/label_speakers.py" "$WAV" "$SEG" "$LIVE" "$OUT" >> "$LOG" 2>&1 \
+timeout -k 30 600 nice -n 10 "${SANDBOX[@]}" "$DIR/venv/bin/python3" "$DIR/label_speakers.py" "$WAV" "$SEG" "$LIVE" "$OUT" >> "$LOG" 2>&1 \
     || fail "label_speakers.py exited $?"
 rm -f "$SEG"
 
