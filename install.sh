@@ -9,7 +9,9 @@
 #     --speakers       also set up speaker-labelled transcripts without asking
 #     --no-speakers    skip speaker-labelled transcripts without asking
 #     --speaker-model-from DIR   copy the speaker model from DIR instead of downloading it
-#     --check          only check this computer meets the requirements; install nothing
+#     --check          only check this computer meets the requirements and list the system
+#                      packages that would be installed; install nothing
+#     --yes            install missing system packages without asking
 # Safe to re-run: it repairs or upgrades an existing install, and sets up accounts added since.
 set -euo pipefail
 
@@ -17,6 +19,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 PREFIX=/opt/hearside
 
 app_args=()
+system_args=()
 users=()
 speakers=ask
 speaker_from=""
@@ -30,7 +33,8 @@ while [ $# -gt 0 ]; do
         --no-speakers) speakers=no ;;
         --speaker-model-from) speaker_from="${2:?--speaker-model-from needs a folder}"; speakers=yes; shift ;;
         --check) check_only=yes ;;
-        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+        --yes) system_args+=(--yes) ;;
+        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1 (see ./install.sh --help)" >&2; exit 1 ;;
     esac
     shift
@@ -56,6 +60,7 @@ if [ "${plasma_major:-0}" -lt 5 ] || { [ "$plasma_major" -eq 5 ] && [ "${plasma_
 fi
 if [ "$check_only" = yes ]; then
     echo "OK: KDE Plasma $plasma_version. This computer can run HearSide."
+    bash "$HERE/install-system.sh" --list-missing
     exit 0
 fi
 [ "$(id -u)" -eq 0 ] || stop "run it with sudo:  sudo $0" "It installs once, for every user of this computer."
@@ -77,7 +82,7 @@ if [ ${#app_args[@]} -eq 0 ] && ! grep -qs '^DICTATION_' "$PREFIX/hearside.env" 
 fi
 
 bold "Step 1 of 3: system packages and user accounts"
-bash "$HERE/install-system.sh" "${users[@]}"
+bash "$HERE/install-system.sh" "${system_args[@]}" "${users[@]}"
 
 bold "Step 2 of 3: dictation and live captions (shared, in $PREFIX)"
 bash "$HERE/install-app.sh" "${app_args[@]}"

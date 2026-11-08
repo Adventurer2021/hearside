@@ -21,7 +21,7 @@ HearSide is installed **once per computer**, by someone with `sudo` rights, and 
 ./install.sh --check      # "OK: KDE Plasma 6.x.x. This computer can run HearSide."
 ```
 
-**HearSide requires KDE Plasma.** The installer checks this first and stops if Plasma isn't installed or is older than 5.27.
+**HearSide requires KDE Plasma.** The installer checks this first and stops if Plasma isn't installed or is older than 5.27. `--check` also lists the system packages the installer would add (or says they're all there already). It installs nothing and needs no sudo.
 
 ## 2. Unpack it
 
@@ -43,7 +43,7 @@ What happens:
 
 1. **Checks first** that KDE Plasma 5.27+ is installed. If not, it stops before changing anything.
 2. **Slow computer?** On CPUs with 4 threads or fewer (Intel N100, older Core i3/i5…), it offers the **8-bit model**: about twice as fast, and it gave the same words in testing. Press **Enter** to accept (the recommended answer is the default). You can also choose it yourself: `sudo ./install.sh --int8 --threads 3`.
-3. **System packages and accounts.** It installs Python tools, PipeWire's echo canceller, `bubblewrap` and `ydotool` (which types the dictated text; downloaded from its GitHub release and checksum-verified), and adds **every regular user account** to the `input` group, which dictation needs to type text. To set up only some accounts: `sudo ./install.sh --users "anna ben"`.
+3. **System packages and accounts.** It lists the system packages that are missing and asks **"Install them now? [Y/n]"** before adding them (packages already installed are left alone; `--yes` skips the question). It installs Python tools, PipeWire's echo canceller, `bubblewrap` and `ydotool` (which types the dictated text; downloaded from its GitHub release and checksum-verified), and adds **every regular user account** to the `input` group, which dictation needs to type text. To set up only some accounts: `sudo ./install.sh --users "anna ben"`.
 4. **Dictation and live captions**, shared by everyone, in `/opt/hearside`: PyTorch (~1 GB, CPU-only), NVIDIA's speech model (~2.5 GB), the hotkey and typing services (started at each user's login), and **Dictation (HearSide)** / **Live Captions (HearSide)** entries in the application menu.
 5. **Speaker labels (optional).** It asks whether you want them. If you say yes, follow step 4 below when it pauses.
 
